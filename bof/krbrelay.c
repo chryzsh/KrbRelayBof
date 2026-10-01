@@ -2231,7 +2231,8 @@ void go(char *args, unsigned long alen) {
         g_state.detail = (int)KERNEL32$GetLastError();
         goto relay_done;
     }
-    worker = KERNEL32$CreateThread(NULL, 0, relay_worker, NULL, 0, NULL);
+    DWORD worker_tid;
+    worker = KERNEL32$CreateThread(NULL, 0, relay_worker, NULL, 0, &worker_tid);
     if (!worker) {
         g_state.stage = STAGE_WORKER_START;
         g_state.detail = (int)KERNEL32$GetLastError();
