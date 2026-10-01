@@ -7,7 +7,7 @@ BINPREFIX := $(MINGW_PREFIX)/usr/x86_64-w64-mingw32/bin/
 INCLUDE := $(MINGW_PREFIX)/usr/x86_64-w64-mingw32/include
 CFLAGS := --sysroot=$(SYSROOT) -B$(GCCLIB) -B$(BINPREFIX) -Os \
 	-fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
-	-mno-stack-arg-probe -I$(INCLUDE)
+	-fno-jump-tables -mno-stack-arg-probe -I$(INCLUDE)
 
 .PHONY: all verify clean
 

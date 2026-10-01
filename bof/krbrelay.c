@@ -2087,58 +2087,50 @@ static DWORD WINAPI relay_worker(LPVOID unused) {
     return result;
 }
 
+/* If-else chain instead of switch: GCC compiles a switch with sparse case
+ * values into a jump table in .rdata with IMAGE_REL_AMD64_REL32 relocations
+ * back to .text. Some third-party COFF loaders (including OC2) do not apply
+ * relocations in the .rdata section, leaving the table entries unresolved.
+ * The resulting indirect jump lands at an invalid address and kills the host
+ * process. A flat if-else chain avoids the jump table entirely. */
 static const char *stage_name(int stage) {
-    switch (stage) {
-        case STAGE_ARGUMENT_BLOCK:
-        case STAGE_RELAY_HOST:
-        case STAGE_RELAY_PORT:
-        case STAGE_SERVICE_SPN:
-        case STAGE_RPC_HOST:
-        case STAGE_RPC_ENDPOINT:
-        case STAGE_TRIGGER_CLSID:
-            return "argument validation";
-        case STAGE_VEH_INSTALL:
-            return "VEH setup";
-        case STAGE_WORKER_START:
-        case STAGE_WORKER_EXCEPTION:
-            return "worker execution";
-        case STAGE_WORKER_COM:
-        case STAGE_CALLER_COM:
-            return "COM initialization";
-        case STAGE_CLSID_PARSE:
-            return "COM object selection";
-        case STAGE_COM_QUERY:
-        case STAGE_COM_POLICY:
-        case STAGE_COM_SECURITY:
-        case STAGE_COM_AUTH_PACKAGE:
-            return "COM security";
-        case STAGE_SSPI_HOOK:
-            return "SSPI interception";
-        case STAGE_RPC_RESOLVER:
-            return "RPC resolver";
-        case STAGE_NATIVE_ANCHOR:
-        case STAGE_MARSHAL_STREAM:
-        case STAGE_MARSHAL_INTERFACE:
-        case STAGE_MARSHAL_READ:
-        case STAGE_OBJREF_PREPARE:
-        case STAGE_OBJREF_BINDING:
-        case STAGE_OBJREF_SECURITY:
-            return "OBJREF preparation";
-        case STAGE_STORAGE:
-            return "COM trigger storage";
-        case STAGE_ACTIVATION:
-            return "COM activation";
-        case STAGE_RELAY_BRIDGE:
-            return "relay bridge";
-        case STAGE_RELAY_CONTINUATION:
-            return "relay continuation";
-        case STAGE_RELAY_TARGET:
-            return "relay target";
-        case STAGE_CLEANUP:
-            return "cleanup";
-        default:
-            return "unknown phase";
-    }
+    if (stage >= STAGE_ARGUMENT_BLOCK && stage <= STAGE_TRIGGER_CLSID)
+        return "argument validation";
+    if (stage == STAGE_VEH_INSTALL)
+        return "VEH setup";
+    if (stage == STAGE_WORKER_START || stage == STAGE_WORKER_EXCEPTION)
+        return "worker execution";
+    if (stage == STAGE_WORKER_COM || stage == STAGE_CALLER_COM)
+        return "COM initialization";
+    if (stage == STAGE_CLSID_PARSE)
+        return "COM object selection";
+    if (stage == STAGE_COM_QUERY || stage == STAGE_COM_POLICY ||
+        stage == STAGE_COM_SECURITY || stage == STAGE_COM_AUTH_PACKAGE)
+        return "COM security";
+    if (stage == STAGE_SSPI_HOOK)
+        return "SSPI interception";
+    if (stage == STAGE_RPC_RESOLVER)
+        return "RPC resolver";
+    if (stage == STAGE_NATIVE_ANCHOR || stage == STAGE_OBJREF_PREPARE ||
+        stage == STAGE_OBJREF_BINDING || stage == STAGE_OBJREF_SECURITY ||
+        stage == STAGE_MARSHAL_STREAM || stage == STAGE_MARSHAL_INTERFACE ||
+        stage == STAGE_MARSHAL_READ)
+        return "OBJREF preparation";
+    if (stage == STAGE_STORAGE)
+        return "COM trigger storage";
+    if (stage == STAGE_ACTIVATION)
+        return "COM activation";
+    if (stage == STAGE_RELAY_BRIDGE)
+        return "relay bridge";
+    if (stage == STAGE_RELAY_CONTINUATION)
+        return "relay continuation";
+    if (stage == STAGE_RELAY_TARGET)
+        return "relay target";
+    if (stage == STAGE_RELAY_COMPLETE)
+        return "relay complete";
+    if (stage == STAGE_CLEANUP)
+        return "cleanup";
+    return "unknown phase";
 }
 
 static int parse_arguments(char *args, unsigned long args_len) {
