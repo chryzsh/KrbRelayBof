@@ -14,9 +14,7 @@ The relay server stops after receiving the PFX or performing the directory write
 ## Build and load
 
 ```bash
-make clean
 make
-make verify
 ```
 
 This produces `bof/krbrelay.x64.o`. The default Makefile expects x64 MinGW-w64 at `/tmp/krb-mingw-root`; set `MINGW_PREFIX` if yours is elsewhere.
@@ -144,7 +142,7 @@ Expected success:
 [+] RBCD relay completed
 ```
 
-This replaces `msDS-AllowedToActOnBehalfOfOtherIdentity` with a descriptor containing repeated identical ACEs for the supplied SID. `--padding-count` controls the ACE count and defaults to `8`; set it to `1` for no extra ACE padding. The final S4U/ticket sequence is left to the operator.
+This replaces `msDS-AllowedToActOnBehalfOfOtherIdentity` with a descriptor containing repeated identical ACEs for the supplied SID. `--padding-count` controls the ACE count and defaults to `8`; set it to `1` for no extra ACE padding.
 
 ## BOF success output
 
@@ -162,7 +160,7 @@ This replaces `msDS-AllowedToActOnBehalfOfOtherIdentity` with a descriptor conta
 [+] Cleanup complete: resolver removed, SSPI restored, VEH removed
 ```
 
-BOF success proves the target accepted the relayed account. For AD CS/Shadow Credentials, also verify Python's output and PFX. For LDAP, verify the ModifyResponse—not only the SASL bind.
+BOF success proves the target accepted the relayed account
 
 ## Repeating a relay
 
@@ -180,7 +178,6 @@ Reusing the same `service_spn` in separate tasks is supported. When changing bet
 - Start Python before the BOF.
 - Confirm the exact `rportfwd_local relay_port 127.0.0.1 relay_port` entry.
 - Keep the rport Beacon at sleep `0`.
-- Recreate the reverse forward after reconnecting its Cobalt client.
 
 ### Python cannot reach AD CS or the DC
 
@@ -190,8 +187,6 @@ Reusing the same `service_spn` in separate tasks is supported. When changing bet
 
 ### LDAP binds but modification fails
 
-- Read the LDAP result and diagnostic text.
-- Confirm LDAP signing is not enforced.
 - Confirm the exact target DN and update rights.
 - Shadow Credentials refuses an existing NGC value; remove only your controlled value before retrying.
 
@@ -201,7 +196,7 @@ Direct Kerberos SASL relay to LDAPS is unsupported. The coerced RPC context requ
 
 ### BOF reports a COM/stage error
 
-Use a free `rpc_endpoint`, retain the complete stage/status line, and check whether the Beacon survived. VEH is the vectored exception handler used to report faults and restore temporary hooks/state before the object unloads.
+Change the `rpc_endpoint`
 
 ## Files
 
