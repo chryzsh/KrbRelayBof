@@ -1,0 +1,183 @@
+
+PS C:\Users\test\Downloads> .\survey_triggers.ps1
+[*] 180 LocalSystem-backed DCOM CLSIDs found
+{c980e4c2-c178-4572-935d-a8a429884806}  svc=AppReadiness start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{F01D6448-0959-4E38-B6F6-B6643D4558FE}  svc=AppVClient start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{90F18417-F0F1-484E-9D3C-59DCEEE5DBD8}  svc=AxInstSv start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{bb6df56b-cace-11dc-9992-0019b93a3a84}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{4575438F-A6C8-4976-B0FE-2F26B80D959E}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{77646f02-8a5f-4451-b8eb-4248f04c38ce}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{4991d34b-80a1-4291-83b6-3328366b9097}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{4d233817-b456-4e75-83d2-b17dec544d12}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{69AD4AEE-51BE-439b-A92C-86AE490E8B30}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{1ecca34c-e88a-44e3-8d6a-8921bde9e452}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{4bd3e4e1-7bd4-4a2b-9964-496400de5193}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{5FD42AD5-C04E-4D36-ADC7-E08FF15737AD}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{6d18ad12-bde3-4393-b311-099c346e6df9}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{659cdea7-489e-11d9-a9cd-000d56965251}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{03ca98d6-ff5d-49b8-abc6-03dd84127020}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{675259D2-C8D5-4AD7-89AE-E9E44C060568}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{F087771F-D74F-4C1A-BB8A-E16ACA9124EA}  svc=BITS start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{A59E005F-A7B5-4E47-98E8-6A0B14320169}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{A8889E84-14D9-43D0-813A-249BFFE193C2}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{9A072C42-7860-4B6A-82B7-623AEE7C7436}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{436EF0BB-F8D1-4635-BB22-6429D12CB90C}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{4B4FA1BA-E980-4E89-A5A9-A70E6637B1FB}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{5179B48C-C9FB-4CE1-B0EA-C3BF0E68C04C}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{748FFF62-0721-4BAB-9C22-F0A25C2C42B2}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{7586F166-EF16-4609-A624-02876CA62CC3}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{6574FFC8-B7C0-4C48-86E8-0E523899C709}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{8A579C35-8D13-4559-89E1-8F4039C18DFF}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{6A5762D4-9023-498F-AD54-D1AC32064B0E}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{5BECBDD8-9DD9-435E-88AA-4C62BBDA74AD}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{87EC2F34-62DE-47A9-ADFB-21396C8A14F4}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{53C46006-E1C5-4AD1-89B3-B8332D1B17EA}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{7E89FF0B-F649-4F9A-A9C3-F05DFAAA3DA1}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{5BAE1EF9-1CCF-413C-A0B2-0AB09543506E}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{589D622F-C05D-48D8-977A-57ABF87655E8}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{B019CAE0-D910-410F-AD15-5AFA0E58DF61}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{1CCB96F4-B8AD-4B43-9688-B273F58E0910}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{E40745A1-F35A-48B1-A05D-29E6947C5C85}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{E4A3AB31-19A6-442C-A8CF-C1F69B929B62}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{02D2D25A-7E3F-4E23-89EB-1D876E9F6796}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{DF75308D-0DF4-428B-952C-EBFF36DBA3CB}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{E2B4C3C6-BB91-47D1-B564-5C6A0FBB1CE4}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{F80A8D57-D338-43FF-A5E6-5D093EA80775}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{05D1D5D8-18D1-4B83-85ED-A0F99D53C885}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{FE98DDE9-E725-4492-BAD6-0E9B0C47744F}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{135D7881-D666-4046-A1DF-7EC7B5785A67}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{E73CB269-A663-43D2-A05F-8020B9CCC37E}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{0D011B6A-4BDB-49CB-8533-820B75E24DCA}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{27F6C721-3343-4583-AA3F-A9B7B5BBA16F}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{B61B02C8-6F75-4F74-9FA4-EEA5F391A425}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{B07C1D3E-637B-4C71-BC2F-06665F376A59}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{B837493E-0508-4086-AD41-DC642915B3DD}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{329E0625-C58F-4A93-B594-5A50ED00A4E0}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{B6F3B912-A3C6-466D-8EE0-C09B0F63563F}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{2A552830-5C99-4D45-91B4-8AD37D3B1B96}  svc=CcmExec start=Auto  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{B7D64AEC-7459-4121-8884-CA8BA4CC99B0}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{2AE987B9-18A2-4961-A91C-197FBE103535}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{BE55EEAE-EFBC-45A8-9D9C-0F34C8824B1A}  svc=CcmExec start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{FD3659E9-A920-4123-AD64-7FC76C7AACDF}  svc=CscService start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{69486DD6-C19F-42e8-B508-A53F9F8E67B8}  svc=CscService start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{d20a3293-3341-4ae8-9aaf-8e397cb63c34}  svc=defragsvc start=Manual  => [probe] coerced auth_type=16 auth_level=6 token0=0x6e
+{42CBFAA7-A4A7-47BB-B422-BD10E9D02700}  svc=DiagnosticsHub.StandardCollector.Service start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{1A237AAA-3F82-4D15-AC67-E9BCC06AE07C}  svc=DmEnrollmentSvc start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{8B4B437E-4CAB-4e83-89F6-7F9F7DF414EA}  svc=EapHost start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{8C482DCE-2644-4419-AEFF-189219F916B9}  svc=EapHost start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{0A886F29-465A-4aea-8B8E-BE926BFAE83E}  svc=EapHost start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{FFE1E5FE-F1F0-48C8-953E-72BA272F2744}  svc=EntAppSvc start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{C63261E4-6052-41FF-B919-496FECF4C4E5}  svc=EntAppSvc start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{42C21DF5-FB58-4102-90E9-96A213DC7CE8}  svc=EntAppSvc start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{805a61d6-44c1-48c0-8af1-721a248effed}  svc=GraphicsPerfSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{08D9DFDF-C6F7-404A-A20F-66EEC0A609CD}  svc=lfsvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{12F246F3-DF68-4252-AE6B-07B9CF73B99A}  svc=lpasvc start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{3AFEA1D5-6518-4BE3-B12D-ED3325DF0515}  svc=lppsvc start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{4032FE99-EA88-432C-B870-D975C9F1D5F9}  svc=McpManagementService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{2F21A1B8-750B-4AC7-A6E2-C70A3F2D21FB}  svc=McpManagementService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{E996A665-85A7-4CEF-9470-25D24326B354}  svc=McpManagementService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{AA75448A-2459-4C8C-A801-3C98D7CA3D45}  svc=McpManagementService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{C559CC0B-9219-4A8E-A0CA-010C5F5E1324}  svc=McpManagementService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{A3C5551F-F69E-4051-90EB-C5F7484E9304}  svc=McpManagementService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{454CBB06-6BDE-4F0D-8392-C4BCE2A0B71B}  svc=McpManagementService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{A9819296-E5B3-4E67-8226-5E72CE9E1FB7}  svc=McpManagementService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{1FCBE96C-1697-43AF-9140-2897C7C69767}  svc=MicrosoftEdgeElevationService start=Manual  => [probe] coerced auth_type=16 auth_level=6 token0=0x6e
+{000C101C-0000-0000-C000-000000000046}  svc=MSIServer start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{BA126ADE-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80004002, completed legs 0)
+{BA126ADF-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{BA126ADD-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{B4C8DF59-D16F-4042-80B7-3557A254B7C5}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126ADB-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AE3-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{CD5096A1-E7E7-4E09-8B12-CBF2790A87CF}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{27E34B2A-14C1-4019-81AD-12D9F9F88A8C}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AE5-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{6FE54E0E-009F-4E3D-A830-EDFA71E1F306}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{02FAFBE2-4E3B-49BE-A5AB-FD416270EE4B}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD7-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD3-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD4-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD6-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD5-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD8-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{1693A251-983B-4CB6-A4A9-F27585A7D21A}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD9-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD2-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{BA126AD1-2166-11D1-B1D0-00805FC1270E}  svc=netman start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{854A20FB-2D44-457D-992F-EF13785D2B51}  svc=PrintNotify start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{BA677074-762C-444b-94C8-8C83F93F6605}  svc=profsvc start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{F0FF8EBB-F14D-4369-BD2E-D84FBF6122D6}  svc=RSoPProv start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{5CF41123-E9E6-4AC0-85A7-C4001F513C6A}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{C39622C7-DDA7-4385-BD69-B6CC374C2E2F}  svc=securityhealthservice start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{8C9C0DB7-2CBA-40F1-AFE0-C55740DD91A0}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{EDAE4045-CAE6-4706-8973-FA69715B8C10}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{BD8A8E7D-E42F-434A-8215-C7ECB6C32786}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{47782907-6A6D-44BC-8872-4E45E994E6F9}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{2D15188C-D298-4E10-83B2-64666CCBEBBD}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{816A45F9-7406-42BB-B4FA-A655D96F2A8A}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{F6976CF5-68A8-436C-975A-40BE53616D59}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{2557a77e-882d-4633-960e-0c718670c1c7}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{D6B0D1EB-456E-48FF-A3E3-F393C74B85DB}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{CC66E708-C687-42EA-806E-83D41C9D1A5F}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{A2A6D7C6-ECBD-439E-9244-9E784608439F}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{434AEC1C-8583-45EC-B88F-750D6F380BC3}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{74FA5D1F-BBD3-4F3E-8776-41EDEFC608D9}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{470B9B9B-0E95-4963-B265-5D58E5808C3D}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{F99A566C-42AE-4DE2-AD4D-D297A04C5433}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{1B48339C-D15E-45F3-AD55-A851CB66BE6B}  svc=SecurityHealthService start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{A0A8C0AC-FC70-4EE2-93A8-4A2257AE8619}  svc=SessionEnv start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{DD522ACC-F821-461A-A407-50B198B896DC}  svc=ShellHWDetection start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{555F3418-D99E-4E51-800A-6E89CFD8B1D7}  svc=ShellHWDetection start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{e7921051-7828-4d09-b4fe-aa5393e85971}  svc=shpamsvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{65EE1DBA-8FF4-4a58-AC1C-3470EE2F376A}  svc=swprv start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{5C9AB547-345D-4175-9AF6-65133463A100}  svc=TieringEngineService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{50D185B9-FFF3-4656-92C7-E4018DA4361D}  svc=TieringEngineService start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{8F5DF053-3013-4dd8-B5F4-88214E81C0CF}  svc=TrustedInstaller start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{752073A1-23F2-4396-85F0-8FDB879ED0ED}  svc=TrustedInstaller start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{3c6859ce-230b-48a4-be6c-932c0c202048}  svc=TrustedInstaller start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{4729dc2b-36ff-405f-bd36-f45113adb052}  svc=TrustedInstaller start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
+{F556F9B2-C810-44A2-BA7A-3AB8C24E666D}  svc=TrustedInstaller start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{E55B052F-A6F1-49BC-A6A7-4F89D16B5208}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{BD9C9B8F-0403-49D5-8AC2-2354385DF5E5}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{C47A07F6-E6B4-4300-B512-6A95325D6EF8}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{BFE18E9C-6D87-4450-B37C-E02F0B373803}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{84C80796-F07C-4340-8897-DA954AADBF16}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{9C695035-48D2-4229-8B73-4C70E756E519}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{8A1A8BB1-242F-431A-9F5B-254BA754631C}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{A1365519-3256-41A0-BFD6-9FE9B4B0DC31}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{B91D5831-B1BD-4608-8198-D72E155020F7}  svc=UsoSvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{7D1933CB-86F6-4A98-8628-01BE94C9A575}  svc=vds start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{397a2e5f-348c-482d-b9a3-57d383b483cd}  svc=vmicheartbeat start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{95243A62-2F9B-4FDF-B437-40D965F6D17F}  svc=VSS start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{E579AB5F-1CC4-44b4-BED9-DE0991FF0623}  svc=VSS start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{0B5A2C52-3EB9-470a-96E2-6C6D4570E40F}  svc=VSS start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{9ea82395-e31b-41ca-8df7-ec1cee7194df}  svc=WaaSMedicSvc start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{72566e27-1abb-4eb3-b4f0-eb431cb1cb32}  svc=WaaSMedicSvc start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{9A3E1311-23F8-42DC-815F-DDBC763D50BB}  svc=WalletService start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{97061DF1-33AA-4B30-9A92-647546D943F3}  svc=WalletService start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{84C22490-C68A-4492-B3A6-3B7CB17FA122}  svc=WalletService start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{02ECA72E-27DA-40E1-BDB1-4423CE649AD9}  svc=WalletService start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{0E9A7BB5-F699-4D66-8A47-B919F5B6A1DB}  svc=wercplsupport start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{2781761E-28E2-4109-99FE-B9D127C57AFE}  svc=WinDefend start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070005, completed legs 0)
+{C49E32C6-BC8B-11d2-85D4-00105A1F8304}  svc=winmgmt start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{8BC3F05E-D86B-11D0-A075-00C04FB68820}  svc=winmgmt start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{7519A68F-E6F1-422E-B741-F9B960CBAA97}  svc=wisvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{6150FC78-21A1-46A4-BF3F-897090C6D79D}  svc=wisvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{BA75691E-9FF3-492C-9053-4A91A40C556E}  svc=wisvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{3185a766-b338-11e4-a71e-12e3f512a338}  svc=wisvc start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{7A6D9C0A-1E7A-41B6-82B4-C3F7A27BA381}  svc=wpnservice start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{1FD1B5A7-5C96-4711-A7C3-FFF6D21F93D9}  svc=wpnservice start=Auto  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{B52D54BB-4818-4EB9-AA80-F9EACD371DF8}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{7D096C5F-AC08-4F1F-BEB7-5C22C517CE39}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{30766BD2-EA1C-4F28-BF27-0B44E2F68DB7}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{6a207278-17f3-470c-9654-084166c8afc9}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{602BDCE5-CA64-4E91-B27C-FFCA48978A00}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{A9B5F443-FE02-4C19-859D-E9B5C5A1B6C6}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{9E175B68-F52A-11D8-B9A5-505054503030}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{E63DE750-3BD7-4BE5-9C84-6B4281988C44}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{E48EDA45-43C6-48e0-9323-A7B2067D9CD5}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{A5270F6C-19EC-4E17-9EA1-A7074276B9B9}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{9E175B6D-F52A-11D8-B9A5-505054503030}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{5815ADD9-95C5-44F2-8262-3BCD56AA3147}  svc=WSearch start=Disabled  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80070422, completed legs 0)
+{e60687f7-01a1-40aa-86ac-db1cbf673334}  svc=wuauserv start=Manual  => [probe] coerced auth_type=16 auth_level=5 token0=0x6e
+{b8fc52f5-cb03-4e10-8bcb-e3ec794c54a5}  svc=wuauserv start=Manual  => krbrelay.exe : [-] Relay failed during COM activation (stage 70, status 0x80080005, completed legs 0)
