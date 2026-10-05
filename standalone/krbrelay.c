@@ -1347,15 +1347,20 @@ static SECURITY_STATUS SEC_ENTRY accept_hook(
             auth_type = rpc[token_offset - 8];
             relay_rpc = auth_type == RPC_C_AUTHN_GSS_NEGOTIATE ||
                         auth_type == RPC_C_AUTHN_GSS_KERBEROS;
-            if (relay_rpc && !g_state.relay_auth_type) {
-                g_state.relay_auth_type = auth_type;
-                g_state.relay_auth_level = rpc[token_offset - 7];
-                g_state.relay_token_first = rpc[token_offset];
-                /* Print at capture time so a trigger's auth level can be read
-                 * even when no relay is listening (level-2 trigger hunt). */
-                printf("[probe] coerced auth_type=%d auth_level=%d token0=0x%02x\n",
+            if (relay_rpc) {
+                /* Print every authenticated leg, not only the first, so the
+                 * OXID-resolving leg and the DCOM-server leg can be compared
+                 * leg by leg. auth_level 2 is CONNECT (no integrity), 5 is
+                 * packet integrity, 6 is packet privacy. */
+                printf("[probe] coerced leg auth_type=%d auth_level=%d token0=0x%02x\n",
                        auth_type, rpc[token_offset - 7], rpc[token_offset]);
                 fflush(stdout);
+                if (!g_state.relay_auth_type) {
+                    /* Record the first leg for the relay bridge. */
+                    g_state.relay_auth_type = auth_type;
+                    g_state.relay_auth_level = rpc[token_offset - 7];
+                    g_state.relay_token_first = rpc[token_offset];
+                }
             }
         }
 
