@@ -2118,7 +2118,7 @@ static int parse_arguments(int argc, char **argv) {
             "Usage: krbrelay.exe <relay_host> <relay_port> <service_spn> "
             "<rpc_host> <rpc_endpoint> <trigger_clsid>\n"
             "\n"
-            "  relay_host     Python relay server IP (e.g. 10.111.0.111)\n"
+            "  relay_host     Python relay server IP (e.g. 10.10.10.10)\n"
             "  relay_port     Python relay server port (e.g. 9598)\n"
             "  service_spn    Target SPN (e.g. ldap/dc.domain.com)\n"
             "  rpc_host       Local RPC resolver bind address (127.0.0.1)\n"
