@@ -1504,9 +1504,10 @@ def main(argv: list[str]) -> int:
     # Default binds loopback for the rportfwd_local model. --listen-address lets a
     # standalone client connect directly over the network.
     bridge_address = options.listen_address
-    # Enforce the loopback-only peer check solely when actually bound to loopback.
-    # With --listen-address 0.0.0.0 a remote exe peer is expected, so do not reject.
-    enforce_loopback_peer = bridge_address in ("127.0.0.1", "::1")
+    # Accept any bridge peer. The exe reaches the relay either directly (0.0.0.0)
+    # or through an rportfwd forward whose source is not loopback, so a peer
+    # restriction only causes false rejects on this short-lived relay.
+    enforce_loopback_peer = False
     service_spn = f"http/{options.adcs_host}" if options.mode == "adcs" else f"ldap/{options.ldap_host}"
     print(
         f"[*] Matching Beacon command: krbrelay {options.port} "
