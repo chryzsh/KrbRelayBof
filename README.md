@@ -220,7 +220,11 @@ Reusing the same `service_spn` in separate tasks is supported. When changing bet
 
 ### Direct LDAPS fails
 
-Direct Kerberos SASL relay to LDAPS is unsupported. The coerced RPC context requests integrity, and AD rejects SASL integrity over TLS. Disabling EPA does not remove this restriction.
+- Use a fresh Beacon and the default AxInstSv CLSID.
+- Confirm the BOF reports Kerberos type `16` at authentication level `2` or `3`.
+- Include `--ldap-port 636 --ldap-tls` and set `--padding-count 1`.
+- LDAPS channel binding must not be enforced. A context at packet-integrity
+  level cannot use this unsigned post-bind method over TLS.
 
 ### BOF reports a COM/stage error
 
@@ -243,10 +247,12 @@ Only two components participate in a relay:
 | --- | --- |
 | Kerberos to AD CS HTTP/ESC8 | Working |
 | Kerberos to AD CS HTTPS/ESC8 | Working |
-| Kerberos to LDAP Shadow Credentials | Working when signing is not enforced |
-| Kerberos to LDAP RBCD | Directory write working when signing is not enforced |
-| Direct Kerberos relay to LDAPS | Not supported |
+| Kerberos to LDAP Shadow Credentials | Working when LDAP signing is not enforced |
+| Kerberos to LDAP RBCD | Working when LDAP signing is not enforced |
+| Kerberos to LDAPS Shadow Credentials | Working with AxInstSv/type 16 when channel binding is not enforced |
+| Kerberos to LDAPS RBCD | Working with AxInstSv/type 16 when channel binding is not enforced |
 | LDAP with signing enforced | Not supported |
+| LDAPS with channel binding enforced | Not supported |
 
 ## References
 
