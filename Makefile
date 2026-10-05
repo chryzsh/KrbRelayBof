@@ -2,7 +2,7 @@ MINGW_PREFIX ?= /tmp/krb-mingw-root
 # Override this prefix when using a different MinGW-w64 sysroot.
 CC := $(MINGW_PREFIX)/usr/bin/x86_64-w64-mingw32-gcc-posix
 SYSROOT := $(MINGW_PREFIX)
-GCCLIB := $(MINGW_PREFIX)/usr/lib/gcc/x86_64-w64-mingw32/15-posix/
+GCCLIB := $(firstword $(wildcard $(MINGW_PREFIX)/usr/lib/gcc/x86_64-w64-mingw32/*-posix/))
 BINPREFIX := $(MINGW_PREFIX)/usr/x86_64-w64-mingw32/bin/
 INCLUDE := $(MINGW_PREFIX)/usr/x86_64-w64-mingw32/include
 CFLAGS := --sysroot=$(SYSROOT) -B$(GCCLIB) -B$(BINPREFIX) -Os \

