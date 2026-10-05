@@ -135,7 +135,10 @@ class RecordChannel:
         if magic != MAGIC or version != VERSION or reserved != 0:
             raise RelayError("invalid bridge header")
         if kind not in allowed_kinds:
-            raise RelayError("unexpected bridge message for current state")
+            raise RelayError(
+                f"unexpected bridge message kind={kind} "
+                f"(allowed {sorted(allowed_kinds)}) for current state"
+            )
         minimum, maximum = MESSAGE_LIMITS.get(kind, (-1, -1))
         if not minimum <= length <= maximum:
             raise RelayError("invalid bridge payload length")
@@ -1558,7 +1561,7 @@ def main(argv: list[str]) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind((bridge_address, options.port))
-        listener.listen(1)
+        listener.listen(8)
         print(f"[*] Awaiting {options.machine} relay on {bridge_address}:{options.port}", flush=True)
         failed = False
         probe, peer = listener.accept()
@@ -1577,7 +1580,24 @@ def main(argv: list[str]) -> int:
         if options.verbose:
             print("[+] Validated client-local relay bridge", flush=True)
 
-        client, peer = listener.accept()
+        # Tolerate stray or repeated preflight connections before the token
+        # connection. Over an rportfwd/proxychains path the two sequential bridge
+        # connections can be duplicated or reordered, landing a preflight on this
+        # accept (kind=1). Skip those until the token connection arrives.
+        while True:
+            client, peer = listener.accept()
+            head = client.recv(12, socket.MSG_PEEK)
+            if len(head) >= 6 and head[5] == MSG_BRIDGE_PREFLIGHT:
+                stray = RecordChannel(client)
+                try:
+                    stray.receive({MSG_BRIDGE_PREFLIGHT})
+                    stray.send(MSG_BRIDGE_READY)
+                except (RelayError, OSError):
+                    pass
+                client.close()
+                print(f"[*] Tolerated extra bridge preflight from {peer[0]}", flush=True)
+                continue
+            break
         with client:
             channel = RecordChannel(client)
             # Lab change: upstream rejects any non-loopback peer here.
